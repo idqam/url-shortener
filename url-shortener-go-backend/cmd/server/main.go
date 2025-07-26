@@ -18,17 +18,18 @@ import (
 )
 
 func main() {
+err1 := godotenv.Load(".env")
 
-	if err := godotenv.Load(); err != nil {
+	if err1 != nil {
 		log.Println("No .env file found, using system environment variables.")
 	}
 
 	apiKey := os.Getenv("SERVICE_ROLE")
 	
-	apiURL := os.Getenv("DB_API_URL")
+	apiURL := os.Getenv("DB_API_URL")+"/rest/v1"
 
 	if apiKey == "" || apiURL == "" {
-		log.Fatal("DB_API_KEY or DB_API_URL environment variable is missing")
+		log.Fatal("SERVICE_ROLE or DB_API_URL environment variable is missing")
 	}
 
 	supabase, err := repository.NewSupabaseRepository(apiURL, apiKey)
@@ -39,7 +40,7 @@ func main() {
 	urlRepo := repository.NewURLRepository(supabase)
 	urlService := service.NewURLService(urlRepo)
 	urlHandler := handler.NewURLHandler(urlService)
-	server := router.NewAPIServer(":8080", urlHandler)
+	server := router.NewAPIServer(":8080", urlHandler) //change in prod
 
 	go func() {
 		if err := server.Run(); err != nil && err != http.ErrServerClosed {

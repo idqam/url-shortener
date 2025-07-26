@@ -12,10 +12,10 @@ type SupabaseRepository struct {
 }
 
 func NewSupabaseRepository(apiURL string, apiKey string) (*SupabaseRepository, error) {
-	client, err := supabase.NewClient(apiURL, apiKey, &supabase.ClientOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize Supabase client: %w", err)
-	}
-	return &SupabaseRepository{Client: client}, nil
+    client, err := supabase.NewClient(apiURL, apiKey, &supabase.ClientOptions{})
+    if err != nil {
+        return nil, fmt.Errorf("failed to initialize Supabase client: %w", err)
+    }
+
+    return &SupabaseRepository{Client: client}, nil
 }
- 

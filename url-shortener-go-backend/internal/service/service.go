@@ -29,7 +29,6 @@ func (s *urlService) CreateShortURL(
     isPublic bool,
     codeLength int8,
 ) (*model.URL, error) {
-
     parsed, err := utils.ValidateUrl(rawURL)
     if err != nil {
         return nil, fmt.Errorf("invalid URL: %w", err)
@@ -43,29 +42,21 @@ func (s *urlService) CreateShortURL(
         return nil, fmt.Errorf("userID must be provided for private URLs")
     }
 
-    var shortcode string
-    const maxAttempts = 5
-    for i := 0; i < maxAttempts; i++ {
-        shortcode, err = utils.GenerateCode(parsed.Original, codeLength)
-        if err != nil {
-            return nil, fmt.Errorf("failed to generate shortcode: %w", err)
-        }
+    shortcode, err := utils.GenerateCode(parsed.Original, codeLength)
+    if err != nil {
+        return nil, fmt.Errorf("failed to generate shortcode: %w", err)
+    }
 
-        existing, err := s.repo.GetURLByShortCode(shortcode)
-        if err != nil {
-            if err == utils.ErrNotFound {
-                break
-            }
-            return nil, fmt.Errorf("failed to check shortcode uniqueness: %w", err)
-        }
-
-        if existing != nil && i == maxAttempts-1 {
-            return nil, fmt.Errorf("failed to generate unique shortcode after %d attempts", maxAttempts)
-        }
+    existing, err := s.repo.GetURLByShortCode(shortcode)
+    if err != nil && err != utils.ErrNotFound {
+        return nil, fmt.Errorf("failed to check shortcode uniqueness: %w", err)
+    }
+    if existing != nil {
+        return nil, fmt.Errorf("generated shortcode already exists: %s", shortcode)
     }
 
     url := &model.URL{
-        UserID:      nil,
+        UserID:      userID,
         OriginalURL: rawURL,
         ShortCode:   shortcode,
         IsPublic:    isPublic,
