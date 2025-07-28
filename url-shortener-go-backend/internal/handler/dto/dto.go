@@ -1,7 +1,6 @@
 package dto
 
-
-type CreateURLRequest struct {
+type ShortenRequest struct {
 	URL        string  `json:"url"`
 	IsPublic   bool    `json:"is_public"`
 	UserID     *string `json:"user_id,omitempty"`
@@ -12,11 +11,11 @@ type GetUrlsRequest struct {
 	UserID string `json:"user_id"`
 }
 
-
-type CreateURLResponse struct {
+type ShortenResponse struct {
 	ID          string `json:"id"`
-	OriginalURL string `json:"original_url"`
 	ShortCode   string `json:"short_code"`
+	OriginalURL string `json:"original_url"`
+	ShortURL    string `json:"short_url"`
 }
 
 type URLResponse struct {
@@ -24,6 +23,7 @@ type URLResponse struct {
 	UserID      *string `json:"user_id,omitempty"`
 	OriginalURL string  `json:"original_url"`
 	ShortCode   string  `json:"short_code"`
+	ShortURL    string  `json:"short_url"`
 	IsPublic    bool    `json:"is_public"`
 	ClickCount  int     `json:"click_count"`
 	CreatedAt   string  `json:"created_at"`
@@ -35,18 +35,4 @@ type GetUrlsResponse struct {
 
 type ErrorResponse struct {
 	Error string `json:"error"`
-}
-
-type ShortenRequest struct {
-    URL        string  `json:"url"`
-    IsPublic   bool    `json:"is_public"`
-    UserID     *string `json:"user_id,omitempty"`
-    CodeLength int8    `json:"code_length"`
-}
-
-type ShortenResponse struct {
-    ID          string `json:"id"`
-    ShortCode   string `json:"short_code"`
-    OriginalURL string `json:"original_url"`
-    ShortURL    string `json:"short_url"`
 }

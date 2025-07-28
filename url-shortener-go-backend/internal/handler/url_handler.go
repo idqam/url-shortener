@@ -9,6 +9,7 @@ import (
 	"url-shortener-go-backend/internal/handler/dto"
 	"url-shortener-go-backend/internal/model"
 	"url-shortener-go-backend/internal/service"
+	"url-shortener-go-backend/internal/utils"
 )
 
 type URLHandler struct {
@@ -18,35 +19,37 @@ type URLHandler struct {
 func NewURLHandler(svc service.URLService) *URLHandler {
 	return &URLHandler{svc: svc}
 }
-
-func (h *URLHandler) HandleShorten() http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        var req dto.ShortenRequest
-        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-            http.Error(w, "Invalid request body", http.StatusBadRequest)
-            return
-        }
-
-        result, err := h.svc.CreateShortURL(req.URL, req.UserID, req.IsPublic, req.CodeLength)
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
-            return
-        }
-
-        shortURL := fmt.Sprintf("http://%s/%s", r.Host, result.ShortCode)
-
-        res := dto.ShortenResponse{
-            ID:          result.ID,
-            ShortCode:   result.ShortCode,
-            OriginalURL: result.OriginalURL,
-            ShortURL:    shortURL,
-        }
-
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(res)
-    }
+func (s *URLHandler) ShortCodeHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		code := strings.Trim(r.URL.Path, "/")
+		if utils.IsValidShortCode(code) {
+			s.HandleRedirect()(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	}
 }
 
+func (h *URLHandler) HandleShorten() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req dto.ShortenRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		result, err := h.svc.CreateShortURL(r.Context(), req.URL, req.UserID, req.IsPublic, req.CodeLength)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		res := dto.ToShortenResponse(result)
+		respondJSON(w, http.StatusCreated, res)
+	}
+}
+
+//GET /api/urls?user_id=123
 func (h *URLHandler) HandleGetUserUrls() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := r.URL.Query().Get("user_id")
@@ -67,30 +70,33 @@ func (h *URLHandler) HandleGetUserUrls() http.HandlerFunc {
 	}
 }
 
+//GET /<shortcode>
 func (h *URLHandler) HandleRedirect() http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-shortcode := strings.Trim(r.URL.Path, "/")
-        if shortcode == "" {
-            respondError(w, http.StatusBadRequest, "Shortcode is required")
-            return
-        }
+	return func(w http.ResponseWriter, r *http.Request) {
+		shortcode := strings.Trim(r.URL.Path, "/")
+		if shortcode == "" {
+			respondError(w, http.StatusBadRequest, "Shortcode is required")
+			return
+		}
 
-        urlEntry, err := h.svc.GetURLByShortCode(shortcode)
-        if err != nil || urlEntry == nil {
-            respondError(w, http.StatusNotFound, "URL not found")
-            return
-        }
+		ctx := r.Context()
+		urlEntry, err := h.svc.GetURLByShortCode(ctx, shortcode)
+		if err != nil || urlEntry == nil || urlEntry.OriginalURL == "" {
+			respondError(w, http.StatusNotFound, "URL not found")
+			return
+		}
 
-        go func() {
-            if err := h.svc.IncrementClickCount(shortcode); err != nil {
-                fmt.Printf("failed to increment click count: %v\n", err)
-            }
-        }()
+		go func() {
+			if err := h.svc.IncrementClickCount(shortcode); err != nil {
+				fmt.Printf("failed to increment click count: %v\n", err)
+			}
+		}()
 
-        http.Redirect(w, r, urlEntry.OriginalURL, http.StatusFound)
-    }
+		http.Redirect(w, r, urlEntry.OriginalURL, http.StatusFound)
+	}
 }
 
+// GET /api/url?shortcode=abc123
 func (h *URLHandler) HandleGetUrlByShortCode() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortcode := r.URL.Query().Get("shortcode")
@@ -99,7 +105,8 @@ func (h *URLHandler) HandleGetUrlByShortCode() http.HandlerFunc {
 			return
 		}
 
-		u, err := h.svc.GetURLByShortCode(shortcode)
+		ctx := r.Context()
+		u, err := h.svc.GetURLByShortCode(ctx, shortcode)
 		if err != nil || u == nil {
 			respondError(w, http.StatusNotFound, "URL not found")
 			return

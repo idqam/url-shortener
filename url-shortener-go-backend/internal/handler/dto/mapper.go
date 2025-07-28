@@ -5,14 +5,16 @@ import (
 	"url-shortener-go-backend/internal/model"
 )
 
-const timeLayout = time.RFC3339 
+const timeLayout = time.RFC3339
 
 func ToURLResponse(u model.URL) URLResponse {
+	u.PopulateShortURL()
 	return URLResponse{
 		ID:          u.ID,
 		UserID:      u.UserID,
 		OriginalURL: u.OriginalURL,
 		ShortCode:   u.ShortCode,
+		ShortURL:    u.ShortURL,
 		IsPublic:    u.IsPublic,
 		ClickCount:  u.ClickCount,
 		CreatedAt:   u.CreatedAt.UTC().Format(timeLayout),
@@ -29,10 +31,12 @@ func ToGetUrlsResponse(urls []model.URL) GetUrlsResponse {
 	return resp
 }
 
-func ToCreateURLResponse(u *model.URL) CreateURLResponse {
-	return CreateURLResponse{
+func ToShortenResponse(u *model.URL) ShortenResponse {
+	u.PopulateShortURL()
+	return ShortenResponse{
 		ID:          u.ID,
-		OriginalURL: u.OriginalURL,
 		ShortCode:   u.ShortCode,
+		OriginalURL: u.OriginalURL,
+		ShortURL:    u.ShortURL,
 	}
 }
