@@ -1,8 +1,30 @@
+.main-home-container {
+  display: grid;
+}
+.pad-header {
+  margin: 0;
+  padding-top: 2%;
+  display: flex;
+  justify-content: center;
+  max-height: 200px;
+}
+.pad-header header {
+  color: cadetblue;
+  font-weight: bold;
+  font: bold;
+}
+
+.name-header {
+  font: 50px sans-serif;
+  margin: 0;
+  text-align: center;
+}
+
 .shortener-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 2rem;
-  max-width: 800px;
+  max-width: 1000px;
   margin: 80px auto 0;
   padding: 1rem;
 }
@@ -34,6 +56,13 @@
   font-size: 1rem;
   cursor: pointer;
   transition: background-color 0.2s ease-in-out;
+}
+
+.shortener-box p {
+  font-size: 20px;
+}
+.shortener-box a {
+  font-size: 20px;
 }
 
 .shortener-box button:hover {

@@ -3,9 +3,14 @@ import { ShortenerForm } from "../components/ShortenerForm";
 
 export const Home = () => {
   return (
-    <div className="shortener-container">
-      <ShortenerForm />
-      <AnonResult />
-    </div>
+    <section className="main-home-container">
+      <div className="pad-header">
+        <header className="name-header text-red-500">URL SHORTENER</header>
+      </div>
+      <div className="shortener-container">
+        <ShortenerForm />
+        <AnonResult />
+      </div>
+    </section>
   );
 };
