@@ -38,12 +38,3 @@ export function AnonResult() {
     </div>
   );
 }
-
-// <a
-//         href={res.short_url}
-//         target="_blank"
-//         rel="noopener noreferrer"
-//         className="text-blue-600 underline break-words"
-//       >
-//         {res.short_url}
-//       </a>

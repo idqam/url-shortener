@@ -23,6 +23,15 @@ export function ShortenerForm() {
 
   return (
     <form onSubmit={handleSubmit} className="shortener-box">
+      <div className="text-center mb-4">
+        <p className="text-lg font-medium">
+          Url Shortener is a free tool to shorten URLs and generate short links
+        </p>
+        <p className="text-lg text-gray-600">
+          URL shortener creates easy to share short links that are protected and safe from malware and viruses.
+        </p>
+      </div>
+
       <input
         type="url"
         value={url}
@@ -33,7 +42,6 @@ export function ShortenerForm() {
       />
 
       <button className="shortener-box shorten-btn" disabled={loading}>
-        {" "}
         {loading ? (
           <span className="loading-text">
             Loading
