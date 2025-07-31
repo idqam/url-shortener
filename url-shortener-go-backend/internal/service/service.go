@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -166,11 +167,34 @@ func (s *urlService) GetURLByShortCode(ctx context.Context, code string) (*model
 	return u, nil
 }
 
-
 func (s *urlService) GetUserUrls(user model.User) ([]model.URL, error) {
-	log.Printf("[GetUserUrls] Fetching URLs for userID=%s", user.ID)
-	return s.repo.GetUserUrls(user)
+	cacheKey := fmt.Sprintf("urls:user:%s", user.ID)
+
+	if s.cache != nil {
+		if val, ok, err := s.cache.Get(context.Background(), cacheKey); ok && err == nil {
+			var urls []model.URL
+			if err := json.Unmarshal([]byte(val), &urls); err == nil {
+				log.Printf("[GetUserUrls] cache HIT for user=%s", user.ID)
+				return urls, nil
+			}
+		}
+	}
+
+	log.Printf("[GetUserUrls] cache MISS for userID=%s", user.ID)
+	urls, err := s.repo.GetUserUrls(user)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.cache != nil {
+		if jsonBytes, err := json.Marshal(urls); err == nil {
+			_ = s.cache.Set(context.Background(), cacheKey, string(jsonBytes), s.cacheTTL)
+		}
+	}
+
+	return urls, nil
 }
+
 
 func (s *urlService) IncrementClickCount(shortcode string) error {
 	log.Printf("[IncrementClickCount] Incrementing click count for short_code=%s", shortcode)
@@ -200,7 +224,6 @@ func (s *urlService) setCaches(ctx context.Context, url *model.URL) error {
 	log.Printf("%s caching successful for short_code=%s", logPrefix, url.ShortCode)
 	return nil
 }
-
 
 func isUniqueViolation(err error) bool {
 	msg := strings.ToLower(err.Error())

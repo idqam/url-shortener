@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 type ShortenRequest struct {
 	URL        string  `json:"url"`
 	IsPublic   bool    `json:"is_public"`
@@ -9,6 +11,17 @@ type ShortenRequest struct {
 
 type GetUrlsRequest struct {
 	UserID string `json:"user_id"`
+}
+
+type GetUserByEmailRequest struct {
+	Email string `json:"email"`
+}
+
+type GetUserByEmailResponse struct {
+	ID string `json:"id"`
+	Email string `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+
 }
 
 type ShortenResponse struct {

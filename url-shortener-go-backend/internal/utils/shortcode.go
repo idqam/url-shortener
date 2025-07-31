@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 )
+
 func GenerateCode(urlStr string, length int8) (string, error) {
 	if length < 6 || length > 12 {
 		return "", fmt.Errorf("length must be between 6 and 12")

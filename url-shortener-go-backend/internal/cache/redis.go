@@ -2,6 +2,8 @@ package cache
 
 import (
 	"context"
+	"crypto/tls"
+	"log"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -16,19 +18,31 @@ func NewRedisCache(addr string, password string, db int, defaultTTL time.Duratio
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: password,
-		DB:       db,
+		DB:       0,
+		TLSConfig: &tls.Config{}, 	
 	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+defer cancel()
+
+if err := rdb.Ping(ctx).Err(); err != nil {
+	log.Printf("[ERROR] Redis ping failed: %v", err)
+} else {
+	log.Println("[INFO] Redis connected successfully")
+}
 	return &RedisCache{client: rdb, ttl: defaultTTL}
 }
 
 func (c *RedisCache) Get(ctx context.Context, key string) (string, bool, error) {
 	val, err := c.client.Get(ctx, key).Result()
 	if err == redis.Nil {
+		log.Printf("[Redis] MISS for key: %s", key)
 		return "", false, nil
 	}
 	if err != nil {
+		log.Printf("[Redis] ERROR: %v", err)
 		return "", false, err
 	}
+	log.Printf("[Redis] HIT for key: %s", key)
 	return val, true, nil
 }
 

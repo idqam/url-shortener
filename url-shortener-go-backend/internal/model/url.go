@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 )
+
 const BaseDomain = "http://localhost:8080" // Local dev domain will change in prod
 
 type URL struct {

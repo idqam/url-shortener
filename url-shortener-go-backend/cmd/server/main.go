@@ -24,7 +24,6 @@ func main() {
 		log.Println("[INFO] No .env file found. Using system environment variables.")
 	}
 
-
 	// TODO REDIS currently doesnt work, must fix
 	var rc cache.Cache
 	redisURL := os.Getenv("REDIS_URL")
@@ -55,11 +54,15 @@ func main() {
 	urlService := service.NewURLService(urlRepo, rc)
 	urlHandler := handler.NewURLHandler(urlService)
 
+	userRepo := repository.NewUserRepository(supabase)
+	userService := service.NewUserService(userRepo, rc)
+	userHandler := handler.NewUserHandler(userService)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	server := router.NewAPIServer(":"+port, urlHandler)
+	server := router.NewAPIServer(":"+port, urlHandler, userHandler)
 
 	go func() {
 		if err := server.Run(); err != nil && err != http.ErrServerClosed {

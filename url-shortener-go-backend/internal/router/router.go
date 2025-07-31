@@ -14,14 +14,16 @@ type APIServer struct {
 	router  *http.ServeMux
 	server  *http.Server
 	h       *handler.URLHandler
+	us *handler.UserHandler
 }
 
-func NewAPIServer(addr string, h *handler.URLHandler) *APIServer {
+func NewAPIServer(addr string, h *handler.URLHandler, us *handler.UserHandler) *APIServer {
 	mux := http.NewServeMux()
 	s := &APIServer{
 		address: addr,
 		router:  mux,
 		h:       h,
+		us: us,
 	}
 
 	s.routes()
@@ -74,6 +76,17 @@ func (s *APIServer) routes() {
 		log.Printf("[/api/url] %s %s", r.Method, r.URL.Path)
 		s.h.HandleGetUrlByShortCode()(w, r)
 	})
+
+	s.router.HandleFunc("/api/users", func(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[/api/users] %s %s", r.Method, r.URL.Path)
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.us.UserCreationHandler()(w, r)
+})
 
 	s.router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[ShortCodeHandler] %s %s", r.Method, r.URL.Path)
