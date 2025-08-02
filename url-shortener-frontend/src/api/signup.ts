@@ -1,18 +1,22 @@
 import { supabase } from "../lib/supabaseClient";
 
 export async function signupAndRegister(email: string, password: string) {
-  const { error: signupError } = await supabase.auth.signUp({
+  const { data: signupData, error: signupError } = await supabase.auth.signUp({
     email,
     password,
   });
+
   if (signupError) throw new Error(signupError.message);
 
-  const { data, error: loginError } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (loginError || !data.session)
-    throw new Error(loginError?.message || "Login failed");
+  const user = signupData.user;
+  const session = signupData.session;
 
-  return data.session.user.id;
+  if (!session || !user) {
+    console.log("SignUp result:", signupError);
+    throw new Error(
+      "Sign-up failed to return a session. Try logging in manually."
+    );
+  }
+
+  return user.id;
 }

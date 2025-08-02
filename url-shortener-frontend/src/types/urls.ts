@@ -6,12 +6,13 @@ export type UrlStructure = {
   user_id?: string | null;
   click_count?: number;
   created_at?: string;
+  is_public?: boolean;
 };
 
 export type UrlRequestAnon = {
   url: string;
   is_public: boolean;
-  user_id: null;
+  user_id: string | null;
   code_length: number;
 };
 
@@ -50,4 +51,23 @@ export type UrlStructureWithAnalytics = UrlStructure & {
     country: string;
     clicks: number;
   }[];
+};
+
+export type TopUrl = {
+  id: string;
+  original_url: string;
+  short_code: string;
+  click_count: number;
+};
+
+export type WeeklyData = {
+  week: string;
+  clicks: number;
+};
+
+export type DashboardStats = {
+  totalUrls: number;
+  totalClicks: number;
+  topUrls: TopUrl[];
+  weeklyData: WeeklyData[];
 };
