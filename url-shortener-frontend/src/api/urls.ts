@@ -12,7 +12,7 @@ type APIError = {
   code?: string;
 };
 
-async function parseAPIError(res: Response): Promise<Error> {
+export async function parseAPIError(res: Response): Promise<Error> {
   try {
     const data: APIError = await res.json();
     return new Error(data.error || "Unexpected error");
