@@ -81,6 +81,8 @@ func (s *urlService) CreateShortURL(ctx context.Context, rawURL string, userID *
 		} else if err != nil {
 			log.Printf("%s repo.GetURLByOriginalURL error: %v", logPrefix, err)
 		}
+	} else {
+		log.Printf("%s authenticated user (userID=%s): creating new URL entry", logPrefix, *userID)
 	}
 
 	var url *model.URL
@@ -109,10 +111,10 @@ func (s *urlService) CreateShortURL(ctx context.Context, rawURL string, userID *
 				log.Printf("%s unique violation, retrying with a new code", logPrefix)
 				continue
 			}
-			return nil, fmt.Errorf("failed to save URL (unknown reason)")
+			return nil, fmt.Errorf("failed to save URL: %w", err)
 		}
 
-		log.Printf("%s SaveURL success on attempt %d (id=%s, short_code=%s)", logPrefix, i+1, url.ID, url.ShortCode)
+		log.Printf("%s SaveURL success on attempt %d (id=%s, short_code=%s, userID=%v)", logPrefix, i+1, url.ID, url.ShortCode, userID)
 		break
 	}
 
@@ -121,11 +123,21 @@ func (s *urlService) CreateShortURL(ctx context.Context, rawURL string, userID *
 		return nil, fmt.Errorf("could not generate a unique shortcode after %d attempts", s.maxRetries)
 	}
 
-	if err := s.setCaches(ctx, url); err != nil {
-		log.Printf("%s setCaches error: %v", logPrefix, err)
+	if userID == nil {
+		if err := s.setCaches(ctx, url); err != nil {
+			log.Printf("%s setCaches error: %v", logPrefix, err)
+		}
+	} else {
+		if s.cache != nil {
+			if err := s.cache.Set(ctx, cache.KeyShortCode(url.ShortCode), url.OriginalURL, s.cacheTTL); err != nil {
+				log.Printf("%s failed to cache short_code -> original: %v", logPrefix, err)
+			} else {
+				log.Printf("%s cached shortcode->original for authenticated user", logPrefix)
+			}
+		}
 	}
 
-	log.Printf("%s returning url id=%s short_code=%s", logPrefix, url.ID, url.ShortCode)
+	log.Printf("%s returning url id=%s short_code=%s for userID=%v", logPrefix, url.ID, url.ShortCode, userID)
 	return url, nil
 }
 
