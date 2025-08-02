@@ -195,7 +195,6 @@ func (s *urlService) GetUserUrls(user model.User) ([]model.URL, error) {
 	return urls, nil
 }
 
-
 func (s *urlService) IncrementClickCount(shortcode string) error {
 	log.Printf("[IncrementClickCount] Incrementing click count for short_code=%s", shortcode)
 	return s.repo.IncrementClickCount(shortcode)

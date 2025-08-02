@@ -1,23 +1,32 @@
+// File: handler/url_handler.go
 package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
+	"url-shortener-go-backend/internal/cache"
 	"url-shortener-go-backend/internal/handler/dto"
+	"url-shortener-go-backend/internal/middleware"
 	"url-shortener-go-backend/internal/model"
 	"url-shortener-go-backend/internal/service"
 	"url-shortener-go-backend/internal/utils"
 )
 
 type URLHandler struct {
-	svc service.URLService
+	svc   service.URLService
+	cache cache.Cache
 }
 
-func NewURLHandler(svc service.URLService) *URLHandler {
-	return &URLHandler{svc: svc}
+func NewURLHandler(svc service.URLService, cache cache.Cache) *URLHandler {
+	return &URLHandler{
+		svc:   svc,
+		cache: cache,
+	}
 }
 
 // GET /<shortcode>
@@ -45,10 +54,59 @@ func (h *URLHandler) HandleShorten() http.HandlerFunc {
 			respondError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
-
 		req.URL = strings.TrimSpace(req.URL)
+		if req.URL == "" {
+			respondError(w, http.StatusBadRequest, "URL is required")
+			return
+		}
 
-		result, err := h.svc.CreateShortURL(r.Context(), req.URL, req.UserID, req.IsPublic, req.CodeLength)
+		ip := r.Header.Get("X-Forwarded-For")
+		if ip == "" {
+			ip = r.RemoteAddr
+		} else {
+		
+			ip = strings.Split(ip, ",")[0]
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		var userID *string
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := middleware.ExtractClaimsFromToken(token)
+			if err == nil {
+				if sub, ok := claims["sub"].(string); ok && sub != "" {
+					userID = &sub
+				}
+			}
+		}
+
+		req.UserID = userID
+
+		userIDPart := "anon"
+		if userID != nil && *userID != "" {
+			userIDPart = *userID
+		}
+		rateKey := fmt.Sprintf("rate_limit:%s:%s", userIDPart, ip)
+
+		ctx := r.Context()
+		count, err := h.cache.Incr(ctx, rateKey)
+		if err != nil {
+			log.Printf("[RateLimit] INCR failed: %v", err)
+			http.Error(w, "Rate limit error", http.StatusInternalServerError)
+			return
+		}
+
+		if count == 1 {
+			_ = h.cache.Expire(ctx, rateKey, 60*time.Second)
+		}
+
+		if count > 10 {
+			log.Printf("[RateLimit] Too many requests from %s (%s): %d", userIDPart, ip, count)
+			http.Error(w, "Too many requests — slow down", http.StatusTooManyRequests)
+			return
+		}
+
+		result, err := h.svc.CreateShortURL(ctx, req.URL, req.UserID, req.IsPublic, req.CodeLength)
 		if err != nil {
 			log.Printf("[HandleShorten] CreateShortURL failed: %v", err)
 			respondError(w, http.StatusInternalServerError, "Failed to create short URL")
@@ -60,7 +118,7 @@ func (h *URLHandler) HandleShorten() http.HandlerFunc {
 	}
 }
 
-// GET /api/urls?user_id=123
+// GET /api/urls
 func (h *URLHandler) HandleGetUserUrls() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -68,9 +126,15 @@ func (h *URLHandler) HandleGetUserUrls() http.HandlerFunc {
 			return
 		}
 
-		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
-		if userID == "" {
-			respondError(w, http.StatusBadRequest, "Missing user_id parameter")
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			respondError(w, http.StatusUnauthorized, "Missing or invalid Authorization header")
+			return
+		}
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		userID, err := utils.ExtractUserIDFromSupabaseToken(token)
+		if err != nil {
+			respondError(w, http.StatusUnauthorized, "Invalid token")
 			return
 		}
 
@@ -145,11 +209,8 @@ func (h *URLHandler) HandleGetUrlByShortCode() http.HandlerFunc {
 	}
 }
 
-
 func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	// CORS for dev/testing
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {

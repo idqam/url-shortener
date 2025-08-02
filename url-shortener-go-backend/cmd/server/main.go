@@ -12,6 +12,7 @@ import (
 
 	"url-shortener-go-backend/internal/cache"
 	"url-shortener-go-backend/internal/handler"
+	"url-shortener-go-backend/internal/middleware"
 	"url-shortener-go-backend/internal/repository"
 	"url-shortener-go-backend/internal/router"
 	"url-shortener-go-backend/internal/service"
@@ -24,7 +25,6 @@ func main() {
 		log.Println("[INFO] No .env file found. Using system environment variables.")
 	}
 
-	// TODO REDIS currently doesnt work, must fix
 	var rc cache.Cache
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL != "" {
@@ -50,20 +50,30 @@ func main() {
 		log.Fatalf("[FATAL] Failed to create Supabase repository: %v", err)
 	}
 
+	jwtSecret := os.Getenv("SUPABASE_JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("[FATAL] SUPABASE_JWT_SECRET is not set")
+	}
+
+	authMw := middleware.NewAuthMiddleware(jwtSecret)
+
 	urlRepo := repository.NewURLRepository(supabase)
 	urlService := service.NewURLService(urlRepo, rc)
-	urlHandler := handler.NewURLHandler(urlService)
+	urlHandler := handler.NewURLHandler(urlService, rc)
 
-	userRepo := repository.NewUserRepository(supabase)
-	userService := service.NewUserService(userRepo, rc)
-	userHandler := handler.NewUserHandler(userService)
-
+	limiter := middleware.NewRateLimiter(rc, 10, 1*time.Minute) 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	server := router.NewAPIServer(":"+port, urlHandler, userHandler)
 
+	server := router.NewAPIServer(
+		":"+port,
+		urlHandler,
+
+		authMw,             
+		limiter.Middleware, 
+	)
 	go func() {
 		if err := server.Run(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("[FATAL] HTTP server error: %v", err)
@@ -85,7 +95,6 @@ func main() {
 	log.Println("[INFO] Server exited cleanly")
 }
 
-// parseRedisURL parses redis:// URLs into host and password components
 func parseRedisURL(raw string) (addr, password string, err error) {
 	u, err := url.Parse(raw)
 	if err != nil {

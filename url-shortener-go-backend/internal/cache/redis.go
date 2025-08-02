@@ -16,19 +16,19 @@ type RedisCache struct {
 
 func NewRedisCache(addr string, password string, db int, defaultTTL time.Duration) *RedisCache {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       0,
-		TLSConfig: &tls.Config{}, 	
+		Addr:      addr,
+		Password:  password,
+		DB:        0,
+		TLSConfig: &tls.Config{},
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-defer cancel()
+	defer cancel()
 
-if err := rdb.Ping(ctx).Err(); err != nil {
-	log.Printf("[ERROR] Redis ping failed: %v", err)
-} else {
-	log.Println("[INFO] Redis connected successfully")
-}
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Printf("[ERROR] Redis ping failed: %v", err)
+	} else {
+		log.Println("[INFO] Redis connected successfully")
+	}
 	return &RedisCache{client: rdb, ttl: defaultTTL}
 }
 
@@ -51,4 +51,16 @@ func (c *RedisCache) Set(ctx context.Context, key, value string, ttl time.Durati
 		ttl = c.ttl
 	}
 	return c.client.Set(ctx, key, value, ttl).Err()
+}
+
+func (c *RedisCache) Incr(ctx context.Context, key string) (int64, error) {
+	return c.client.Incr(ctx, key).Result()
+}
+
+func (c *RedisCache) Expire(ctx context.Context, key string, ttl time.Duration) error {
+	return c.client.Expire(ctx, key, ttl).Err()
+}
+
+func (c *RedisCache) TTL(ctx context.Context, key string) (time.Duration, error) {
+	return c.client.TTL(ctx, key).Result()
 }
