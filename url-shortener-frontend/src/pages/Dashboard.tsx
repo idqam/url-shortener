@@ -11,13 +11,13 @@ import {
 } from "recharts";
 import { TrendingUp, Link, BarChart3, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useShortenUrl } from "../hooks/useShortenUrl";
 import { useUrlStore } from "../store/UrlStore";
 import { useAuthStore } from "../store/AuthStore";
 import { SignOutButton } from "../components/SignOutButton";
 import { mockData } from "../mockData/mockDataDashBoard";
 import type { DashboardStats } from "../types/urls";
 import QuickShorten from "../components/QuickShorten";
+import { useShortenUrlAuth } from "../hooks/useShortenUrlAuth";
 
 const Dashboard = () => {
   const isAuthenticated = true;
@@ -25,7 +25,7 @@ const Dashboard = () => {
   //const { isAuthenticated, userId, logout } = useAuthStore(); TO USE ONCE AUTH API IMPLEMENTED IN GO BACKEND
   const navigate = useNavigate();
 
-  const { shorten } = useShortenUrl();
+  const { shorten } = useShortenUrlAuth();
   const shortenLoading = useUrlStore((state) => state.loading);
   const [url, setUrl] = useState("");
 
@@ -60,7 +60,7 @@ const Dashboard = () => {
       setError(null);
 
       // Mock data for demonstration
-
+      
       await new Promise((resolve) => setTimeout(resolve, 1000));
       setStats(mockData);
     } catch (err) {
@@ -189,7 +189,6 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#fefefe" }}>
       <div className="max-w-7xl mx-auto px-6 py-12">
-        
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4" style={{ color: "#111827" }}>
             Dashboard
