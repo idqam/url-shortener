@@ -3,7 +3,6 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -34,9 +33,10 @@ func ExtractUserIDFromSupabaseToken(tokenString string) (string, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		if sub, ok := claims["sub"].(string); ok && strings.HasPrefix(sub, "auth0|") || len(sub) > 0 {
-			return sub, nil
-		}
+		if sub, ok := claims["sub"].(string); ok && len(sub) > 0 {
+    return sub, nil
+}
+
 		return "", errors.New("missing or invalid `sub` claim")
 	}
 
