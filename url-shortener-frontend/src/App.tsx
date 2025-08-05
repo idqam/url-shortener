@@ -2,24 +2,34 @@ import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Home } from "./pages/Home";
 import { SignUpPage } from "./pages/SignUpPage";
-import Dashboard from "./pages/Dashboard";
 import LogInPage from "./pages/LogInPage";
 import { supabase } from "./lib/supabaseClient";
 import { useAuthStore } from "./store/AuthStore";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Dashboard from "./pages/Dashboard";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function App() {
   const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const queryClient = new QueryClient();
 
   useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user && data.session?.access_token) {
+        login(data.session.user.id, data.session.access_token);
+      }
+    };
+
+    init();
+
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          login(session.user.id);
-
-          // const token = session.access_token;
+        if (event === "SIGNED_IN" && session?.user && session?.access_token) {
+          login(session.user.id, session.access_token);
         }
-
         if (event === "SIGNED_OUT") {
           logout();
         }
@@ -32,14 +42,23 @@ function App() {
   }, [login, logout]);
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/login" element={<LogInPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
-    </Router>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/login" element={<LogInPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard token={accessToken as string} />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Router>
+    </QueryClientProvider>
   );
 }
 

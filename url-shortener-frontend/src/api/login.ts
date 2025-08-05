@@ -10,5 +10,8 @@ export async function loginUser(email: string, password: string) {
     throw new Error(error?.message || "Login failed");
   }
 
-  return data.session.user.id;
+  return {
+    userId: data.session.user.id,
+    accessToken: data.session.access_token,
+  };
 }
