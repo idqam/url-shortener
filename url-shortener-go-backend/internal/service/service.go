@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -16,227 +15,126 @@ import (
 )
 
 type URLService interface {
-	CreateShortURL(ctx context.Context, rawURL string, userID *string, isPublic bool, codeLength int8) (*model.URL, error)
-	GetURLByShortCode(ctx context.Context, code string) (*model.URL, error)
-	GetUserUrls(user model.User) ([]model.URL, error)
-	IncrementClickCount(shortcode string) error
+	CreateShortURL(ctx context.Context, originalURL string, isPublic bool, userID *string, codeLength int) (*model.URL, error)
+	GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error)
+	GetUserUrls(ctx context.Context, userID string) ([]model.URL, error)
+	IncrementClickCount(ctx context.Context, shortcode string) error
+	SaveAnalytics(ctx context.Context, shortcode, referrer, userAgent, ip string, userID *string) error
 }
 
-type urlService struct {
-	repo              repository.URLRepository
-	cache             cache.Cache
-	defaultCodeLength int8
-	maxRetries        int
-	cacheTTL          time.Duration
+type URLServiceImpl struct {
+	repo  repository.URLRepository
+	cache cache.Cache
 }
 
-func NewURLService(repo repository.URLRepository, c cache.Cache) URLService {
-	return &urlService{
-		repo:              repo,
-		cache:             c,
-		defaultCodeLength: 8,
-		maxRetries:        5,
-		cacheTTL:          24 * time.Hour,
+func NewURLService(repo repository.URLRepository, cache cache.Cache) URLService {
+	return &URLServiceImpl{
+		repo:  repo,
+		cache: cache,
 	}
 }
 
-func (s *urlService) CreateShortURL(ctx context.Context, rawURL string, userID *string, isPublic bool, codeLength int8) (*model.URL, error) {
-	const logPrefix = "[CreateShortURL]"
+func (s *URLServiceImpl) CreateShortURL(ctx context.Context, originalURL string, isPublic bool, userID *string, codeLength int) (*model.URL, error) {
+	cacheKey := fmt.Sprintf("short_url:%s:%v", originalURL, userID)
+	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
+		var cachedURL model.URL
+		if err := json.Unmarshal([]byte(val), &cachedURL); err == nil {
+			return &cachedURL, nil
+		}
+	}
 
-	parsed, err := utils.ValidateUrl(rawURL)
+	shortcode, err := utils.GenerateCode(originalURL, codeLength)
 	if err != nil {
-		log.Printf("%s validate failed: %v", logPrefix, err)
-		return nil, fmt.Errorf("invalid URL: %w", err)
+		log.Printf("[CreateShortURL] Failed to generate shortcode: %v", err)
+		return nil, fmt.Errorf("failed to generate shortcode")
 	}
 
-	if codeLength < 6 || codeLength > 12 {
-		log.Printf("%s codeLength=%d out of bounds, using default=%d", logPrefix, codeLength, s.defaultCodeLength)
-		codeLength = s.defaultCodeLength
+	url := &model.URL{
+		ShortCode:   shortcode,
+		OriginalURL: originalURL,
+		IsPublic:    isPublic,
+		UserID:      userID,
+		CreatedAt:   time.Now(),
 	}
 
-	if !isPublic && userID == nil {
-		log.Printf("%s private URL without userID", logPrefix)
-		return nil, fmt.Errorf("userID must be provided for private URLs")
-	}
-
-	if userID == nil {
-		log.Printf("%s anonymous user path: trying reuse", logPrefix)
-		if s.cache != nil {
-			if sc, ok, _ := s.cache.Get(ctx, cache.KeyOriginalURL(parsed.Original)); ok {
-				log.Printf("%s cache hit original->short_code %s", logPrefix, sc)
-				if u, err := s.repo.GetURLByShortCode(sc); err == nil && u != nil {
-					log.Printf("%s found URL in DB for short_code %s (id=%s)", logPrefix, sc, u.ID)
-					return u, nil
-				}
-				log.Printf("%s cache had code but DB miss, continuing", logPrefix)
-			} else {
-				log.Printf("%s cache miss original->short_code", logPrefix)
+	for retries := 0; retries < 3; retries++ {
+		err := s.repo.SaveURL(ctx, url)
+		if err != nil && strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			shortcode, err := utils.GenerateCode(originalURL, codeLength)
+			if err != nil {
+				log.Printf("[CreateShortURL] Failed to generate shortcode on retry: %v", err)
+				return nil, fmt.Errorf("failed to generate shortcode")
 			}
+			url.ShortCode = shortcode
+			continue
 		}
-
-		if existing, err := s.repo.GetURLByOriginalURL(parsed.Original); err == nil && existing != nil {
-			log.Printf("%s found existing URL in DB (id=%s, short_code=%s)", logPrefix, existing.ID, existing.ShortCode)
-			_ = s.setCaches(ctx, existing)
-			return existing, nil
-		} else if err != nil {
-			log.Printf("%s repo.GetURLByOriginalURL error: %v", logPrefix, err)
-		}
-	} else {
-		log.Printf("%s authenticated user (userID=%s): creating new URL entry", logPrefix, *userID)
-	}
-
-	var url *model.URL
-
-	for i := 0; i < s.maxRetries; i++ {
-		shortcode, err := utils.GenerateCode(parsed.Original, codeLength)
 		if err != nil {
-			log.Printf("%s generate code failed on attempt %d: %v", logPrefix, i+1, err)
-			return nil, fmt.Errorf("failed to generate shortcode: %w", err)
+			log.Printf("[CreateShortURL] Failed to save URL: %v", err)
+			return nil, err
 		}
-		log.Printf("%s attempt %d generated shortcode=%s", logPrefix, i+1, shortcode)
-
-		url = &model.URL{
-			UserID:      userID,
-			OriginalURL: parsed.Original,
-			ShortCode:   shortcode,
-			IsPublic:    isPublic,
-			ClickCount:  0,
-			CreatedAt:   time.Now().UTC(),
-		}
-
-		if err := s.repo.SaveURL(url); err != nil {
-			log.Printf("%s SaveURL failed on attempt %d: %v", logPrefix, i+1, err)
-
-			if errors.Is(err, repository.ErrUniqueViolation) || isUniqueViolation(err) {
-				log.Printf("%s unique violation, retrying with a new code", logPrefix)
-				continue
-			}
-			return nil, fmt.Errorf("failed to save URL: %w", err)
-		}
-
-		log.Printf("%s SaveURL success on attempt %d (id=%s, short_code=%s, userID=%v)", logPrefix, i+1, url.ID, url.ShortCode, userID)
 		break
 	}
 
-	if url == nil || url.ID == "" {
-		log.Printf("%s url is nil or id is empty after %d attempts", logPrefix, s.maxRetries)
-		return nil, fmt.Errorf("could not generate a unique shortcode after %d attempts", s.maxRetries)
+	url.PopulateShortURL()
+
+	if jsonVal, err := json.Marshal(url); err == nil {
+		_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
 	}
 
-	if userID == nil {
-		if err := s.setCaches(ctx, url); err != nil {
-			log.Printf("%s setCaches error: %v", logPrefix, err)
-		}
-	} else {
-		if s.cache != nil {
-			if err := s.cache.Set(ctx, cache.KeyShortCode(url.ShortCode), url.OriginalURL, s.cacheTTL); err != nil {
-				log.Printf("%s failed to cache short_code -> original: %v", logPrefix, err)
-			} else {
-				log.Printf("%s cached shortcode->original for authenticated user", logPrefix)
-			}
-		}
-	}
-
-	log.Printf("%s returning url id=%s short_code=%s for userID=%v", logPrefix, url.ID, url.ShortCode, userID)
 	return url, nil
 }
 
-func (s *urlService) GetURLByShortCode(ctx context.Context, code string) (*model.URL, error) {
-	const logPrefix = "[GetURLByShortCode]"
+func (s *URLServiceImpl) GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error) {
+	cacheKey := "shortcode:" + shortcode
 
-	if s.cache != nil {
-		if orig, ok, err := s.cache.Get(ctx, cache.KeyShortCode(code)); err == nil && ok {
-			log.Printf("%s cache hit for code=%s, original URL=%s", logPrefix, code, orig)
-
-			if u, err := s.repo.GetURLByShortCode(code); err == nil && u != nil {
-				log.Printf("%s found full URL in DB for code=%s (id=%s)", logPrefix, code, u.ID)
-				return u, nil
-			}
-
-			log.Printf("%s cache had original URL but DB lookup failed or not found for code=%s", logPrefix, code)
-			return &model.URL{OriginalURL: orig, ShortCode: code}, nil
-		} else if err != nil {
-			log.Printf("%s cache lookup error for code=%s: %v", logPrefix, code, err)
-		} else {
-			log.Printf("%s cache miss for code=%s", logPrefix, code)
+	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
+		var url model.URL
+		if err := json.Unmarshal([]byte(val), &url); err == nil {
+			return &url, nil
 		}
 	}
 
-	u, err := s.repo.GetURLByShortCode(code)
+	url, err := s.repo.GetURLByShortCode(ctx, shortcode)
 	if err != nil {
-		log.Printf("%s DB error for code=%s: %v", logPrefix, code, err)
+		log.Printf("[GetURLByShortCode] DB lookup failed: %v", err)
 		return nil, err
 	}
-	if u == nil {
-		log.Printf("%s no URL found in DB for code=%s", logPrefix, code)
-		return nil, nil
-	}
 
-	log.Printf("%s found in DB, caching and returning URL (id=%s, short_code=%s)", logPrefix, u.ID, u.ShortCode)
-	if err := s.setCaches(ctx, u); err != nil {
-		log.Printf("%s setCaches failed: %v", logPrefix, err)
-	}
-	return u, nil
+	jsonVal, _ := json.Marshal(url)
+	_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
+
+	return url, nil
 }
 
-func (s *urlService) GetUserUrls(user model.User) ([]model.URL, error) {
-	cacheKey := fmt.Sprintf("urls:user:%s", user.ID)
+func (s *URLServiceImpl) GetUserUrls(ctx context.Context, userID string) ([]model.URL, error) {
+	cacheKey := "user_urls:" + userID
 
-	if s.cache != nil {
-		if val, ok, err := s.cache.Get(context.Background(), cacheKey); ok && err == nil {
-			var urls []model.URL
-			if err := json.Unmarshal([]byte(val), &urls); err == nil {
-				log.Printf("[GetUserUrls] cache HIT for user=%s", user.ID)
-				return urls, nil
-			}
+	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
+		var urls []model.URL
+		if err := json.Unmarshal([]byte(val), &urls); err == nil {
+			return urls, nil
 		}
 	}
 
-	log.Printf("[GetUserUrls] cache MISS for userID=%s", user.ID)
-	urls, err := s.repo.GetUserUrls(user)
+	urls, err := s.repo.GetUserUrls(ctx, userID)
 	if err != nil {
+		log.Printf("[GetUserUrls] DB fetch failed for user %s: %v", userID, err)
 		return nil, err
 	}
 
-	if s.cache != nil {
-		if jsonBytes, err := json.Marshal(urls); err == nil {
-			_ = s.cache.Set(context.Background(), cacheKey, string(jsonBytes), s.cacheTTL)
-		}
-	}
+	jsonVal, _ := json.Marshal(urls)
+	_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
 
 	return urls, nil
 }
 
-func (s *urlService) IncrementClickCount(shortcode string) error {
-	log.Printf("[IncrementClickCount] Incrementing click count for short_code=%s", shortcode)
-	return s.repo.IncrementClickCount(shortcode)
+func (s *URLServiceImpl) IncrementClickCount(ctx context.Context, shortcode string) error {
+	err := s.repo.IncrementClickCount(ctx, shortcode)
+	if err != nil {
+		log.Printf("[IncrementClickCount] Failed for shortcode %s: %v", shortcode, err)
+	}
+	return err
 }
-
-func (s *urlService) setCaches(ctx context.Context, url *model.URL) error {
-	const logPrefix = "[setCaches]"
-
-	if s.cache == nil {
-		log.Printf("%s skipping cache — no cache implementation", logPrefix)
-		return nil
-	}
-
-	if err := s.cache.Set(ctx, cache.KeyShortCode(url.ShortCode), url.OriginalURL, s.cacheTTL); err != nil {
-		log.Printf("%s failed to cache short_code -> original: %v", logPrefix, err)
-		return err
-	}
-
-	if url.UserID == nil {
-		if err := s.cache.Set(ctx, cache.KeyOriginalURL(url.OriginalURL), url.ShortCode, s.cacheTTL); err != nil {
-			log.Printf("%s failed to cache original -> short_code: %v", logPrefix, err)
-			return err
-		}
-	}
-
-	log.Printf("%s caching successful for short_code=%s", logPrefix, url.ShortCode)
-	return nil
-}
-
-func isUniqueViolation(err error) bool {
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint")
+func (s *URLServiceImpl) SaveAnalytics(ctx context.Context, shortcode, referrer, userAgent, ip string, userID *string) error {
+	return fmt.Errorf("")
 }

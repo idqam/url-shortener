@@ -1,13 +1,14 @@
 package repository
 
 import (
+	"context"
 	"url-shortener-go-backend/internal/model"
 )
 
 type URLRepository interface {
-	SaveURL(url *model.URL) error
-	GetURLByShortCode(shortcode string) (*model.URL, error)
-	IncrementClickCount(shortcode string) error
-	GetUserUrls(user model.User) ([]model.URL, error)
-	GetURLByOriginalURL(original string) (*model.URL, error)
+	SaveURL(ctx context.Context, url *model.URL) error
+	GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error)
+	GetUserUrls(ctx context.Context, userID string) ([]model.URL, error)
+	IncrementClickCount(ctx context.Context, shortcode string) error
+	SaveAnalytics(ctx context.Context, userID, urlID, referrer, deviceType string) error
 }

@@ -2,183 +2,221 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
+	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"url-shortener-go-backend/internal/handler/dto"
+	"url-shortener-go-backend/internal/handler/mapper"
+	"url-shortener-go-backend/internal/middleware"
 	"url-shortener-go-backend/internal/service"
-	"url-shortener-go-backend/internal/utils"
-
-	"github.com/go-chi/chi/v5"
 )
 
 type AnalyticsHandler struct {
-	service service.AnalyticsService
+	analyticsService service.AnalyticsService
 }
 
-func NewAnalyticsHandler(svc service.AnalyticsService) *AnalyticsHandler {
-	return &AnalyticsHandler{service: svc}
+func NewAnalyticsHandler(analyticsService service.AnalyticsService) *AnalyticsHandler {
+	return &AnalyticsHandler{
+		analyticsService: analyticsService,
+	}
 }
 
-// GET /analytics/url/{urlID}?days=30
-func (h *AnalyticsHandler) GetURLAnalytics(w http.ResponseWriter, r *http.Request) {
-	urlID := chi.URLParam(r, "urlID")
-	days := getQueryInt(r, "days", 30)
+func (h *AnalyticsHandler) HandleGetDashboard() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
 
-	analytics, err := h.service.GetURLAnalytics(r.Context(), urlID, days)
-	if err != nil {
-		http.Error(w, "Failed to get analytics", http.StatusInternalServerError)
-		return
+		userID := middleware.GetUserIDFromContext(r.Context())
+		if userID == "" {
+			respondError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+
+		log.Printf("[HandleGetDashboard] Fetching analytics dashboard for user: %s", userID)
+
+		summary, err := h.analyticsService.GetUserDashboard(r.Context(), userID)
+		if err != nil {
+			log.Printf("[HandleGetDashboard] Failed to get dashboard for user %s: %v", userID, err)
+			respondError(w, http.StatusInternalServerError, "Failed to fetch analytics dashboard")
+			return
+		}
+
+		response := mapper.ToAnalyticsDashboardResponse(*summary)
+
+		log.Printf("[HandleGetDashboard] Successfully fetched dashboard for user: %s", userID)
+		RespondJSON(w, http.StatusOK, response)
 	}
-
-	resp := dto.NewAnalyticsSummaryResponse(analytics)
-	writeJSON(w, http.StatusOK, resp)
 }
 
-// GET /analytics/user/summary?days=30
-func (h *AnalyticsHandler) GetUserAnalytics(w http.ResponseWriter, r *http.Request) {
-	userID, err := extractUserIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+func (h *AnalyticsHandler) HandleGetTopURLs() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
 
-	days := getQueryInt(r, "days", 30)
-	analytics, err := h.service.GetUserAnalytics(r.Context(), userID, days)
-	if err != nil {
-		http.Error(w, "Failed to get analytics", http.StatusInternalServerError)
-		return
-	}
+		userID := middleware.GetUserIDFromContext(r.Context())
+		if userID == "" {
+			respondError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 
-	resp := dto.NewAnalyticsSummaryResponse(analytics)
-	writeJSON(w, http.StatusOK, resp)
+		limit := 10
+		if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+			if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
+				limit = parsedLimit
+			}
+		}
+
+		log.Printf("[HandleGetTopURLs] Fetching top %d URLs for user: %s", limit, userID)
+
+		urls, err := h.analyticsService.GetUserTopURLs(r.Context(), userID, limit)
+		if err != nil {
+			log.Printf("[HandleGetTopURLs] Failed to get top URLs for user %s: %v", userID, err)
+			respondError(w, http.StatusInternalServerError, "Failed to fetch top URLs")
+			return
+		}
+
+		response := mapper.ToTopURLsResponse(urls)
+
+		RespondJSON(w, http.StatusOK, response)
+	}
 }
 
-// GET /analytics/user/top-urls?limit=10
-func (h *AnalyticsHandler) GetTopURLs(w http.ResponseWriter, r *http.Request) {
-	userID, err := extractUserIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+func (h *AnalyticsHandler) HandleGetTopReferrers() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
 
-	limit := getQueryInt(r, "limit", 10)
-	stats, err := h.service.GetTopURLs(r.Context(), userID, limit)
-	if err != nil {
-		http.Error(w, "Failed to get top URLs", http.StatusInternalServerError)
-		return
-	}
-	resp := dto.NewURLStatsResponse(stats)
-writeJSON(w, http.StatusOK, resp)
+		userID := middleware.GetUserIDFromContext(r.Context())
+		if userID == "" {
+			respondError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 
+		limit := 5
+		if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+			if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 50 {
+				limit = parsedLimit
+			}
+		}
+
+		log.Printf("[HandleGetTopReferrers] Fetching top %d referrers for user: %s", limit, userID)
+
+		referrers, err := h.analyticsService.GetUserTopReferrers(r.Context(), userID, limit)
+		if err != nil {
+			log.Printf("[HandleGetTopReferrers] Failed to get top referrers for user %s: %v", userID, err)
+			respondError(w, http.StatusInternalServerError, "Failed to fetch top referrers")
+			return
+		}
+
+		response := mapper.ToTopReferrersResponse(referrers)
+
+		RespondJSON(w, http.StatusOK, response)
+	}
 }
 
-func (h *AnalyticsHandler) GetUserDailyStats(w http.ResponseWriter, r *http.Request) {
-	userID, err := extractUserIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+func (h *AnalyticsHandler) HandleGetDeviceBreakdown() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		userID := middleware.GetUserIDFromContext(r.Context())
+		if userID == "" {
+			respondError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+
+		log.Printf("[HandleGetDeviceBreakdown] Fetching device breakdown for user: %s", userID)
+
+		devices, err := h.analyticsService.GetUserDeviceBreakdown(r.Context(), userID)
+		if err != nil {
+			log.Printf("[HandleGetDeviceBreakdown] Failed to get device breakdown for user %s: %v", userID, err)
+			respondError(w, http.StatusInternalServerError, "Failed to fetch device breakdown")
+			return
+		}
+
+		response := mapper.ToDeviceBreakdownResponse(devices)
+
+		RespondJSON(w, http.StatusOK, response)
 	}
-
-	days := getQueryInt(r, "days", 30)
-	urlID := r.URL.Query().Get("url_id")
-
-	var stats interface{}
-
-	if urlID != "" {
-		stats, err = h.service.GetDailyStats(r.Context(), &urlID, nil, days)
-	} else {
-		stats, err = h.service.GetDailyStats(r.Context(), nil, &userID, days)
-	}
-
-	if err != nil {
-		http.Error(w, "Failed to get daily stats", http.StatusInternalServerError)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, stats)
 }
 
-func (h *AnalyticsHandler) GetUserDeviceStats(w http.ResponseWriter, r *http.Request) {
-	userID, err := extractUserIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+func (h *AnalyticsHandler) HandleGetDailyTrend() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		userID := middleware.GetUserIDFromContext(r.Context())
+		if userID == "" {
+			respondError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+
+		days := 7
+		if daysStr := r.URL.Query().Get("days"); daysStr != "" {
+			if parsedDays, err := strconv.Atoi(daysStr); err == nil && parsedDays > 0 && parsedDays <= 30 {
+				days = parsedDays
+			}
+		}
+
+		log.Printf("[HandleGetDailyTrend] Fetching %d-day trend for user: %s", days, userID)
+
+		trend, err := h.analyticsService.GetUserDailyTrend(r.Context(), userID, days)
+		if err != nil {
+			log.Printf("[HandleGetDailyTrend] Failed to get daily trend for user %s: %v", userID, err)
+			respondError(w, http.StatusInternalServerError, "Failed to fetch daily trend")
+			return
+		}
+
+		response := mapper.ToDailyTrendAnalyticsResponse(trend, days)
+
+		RespondJSON(w, http.StatusOK, response)
 	}
-
-	urlID := r.URL.Query().Get("url_id")
-
-	var stats interface{}
-
-	if urlID != "" {
-		stats, err = h.service.GetDeviceStats(r.Context(), &urlID, nil)
-	} else {
-		stats, err = h.service.GetDeviceStats(r.Context(), nil, &userID)
-	}
-
-	if err != nil {
-		http.Error(w, "Failed to get device stats", http.StatusInternalServerError)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, stats)
 }
 
-func (h *AnalyticsHandler) GetUserReferrerStats(w http.ResponseWriter, r *http.Request) {
-	userID, err := extractUserIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+func (h *AnalyticsHandler) HandleRecordAnalytics() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		var req struct {
+			URLID      string `json:"url_id"`
+			Referrer   string `json:"referrer,omitempty"`
+			DeviceType string `json:"device_type,omitempty"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		if req.URLID == "" {
+			respondError(w, http.StatusBadRequest, "url_id is required")
+			return
+		}
+
+		userID := middleware.GetUserIDFromContext(r.Context())
+
+		log.Printf("[HandleRecordAnalytics] Recording analytics: userID=%s, urlID=%s", userID, req.URLID)
+
+		err := h.analyticsService.RecordAnalytics(r.Context(), userID, req.URLID, req.Referrer, req.DeviceType)
+		if err != nil {
+			log.Printf("[HandleRecordAnalytics] Failed to record analytics: %v", err)
+			respondError(w, http.StatusInternalServerError, "Failed to record analytics")
+			return
+		}
+
+		RespondJSON(w, http.StatusAccepted, map[string]string{"status": "recorded"})
 	}
-
-	limit := getQueryInt(r, "limit", 10)
-	urlID := r.URL.Query().Get("url_id")
-
-	var stats interface{}
-
-	if urlID != "" {
-		stats, err = h.service.GetReferrerStats(r.Context(), &urlID, nil, limit)
-	} else {
-		stats, err = h.service.GetReferrerStats(r.Context(), nil, &userID, limit)
-	}
-
-	if err != nil {
-		http.Error(w, "Failed to get referrer stats", http.StatusInternalServerError)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, stats)
-}
-
-
-
-func extractUserIDFromRequest(r *http.Request) (string, error) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", errors.New("missing Authorization header")
-	}
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		return "", errors.New("invalid Authorization format")
-	}
-	return utils.ExtractUserIDFromSupabaseToken(parts[1])
-}
-
-func getQueryInt(r *http.Request, key string, defaultVal int) int {
-	valStr := r.URL.Query().Get(key)
-	if valStr == "" {
-		return defaultVal
-	}
-	if val, err := strconv.Atoi(valStr); err == nil {
-		return val
-	}
-	return defaultVal
-}
-
-func writeJSON(w http.ResponseWriter, code int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(data)
 }

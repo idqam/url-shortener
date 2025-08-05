@@ -11,6 +11,13 @@ type SupabaseRepository struct {
 }
 
 func NewSupabaseRepository(apiURL string, apiKey string) (*SupabaseRepository, error) {
+	if apiURL == "" {
+		return nil, fmt.Errorf("apiURL cannot be empty")
+	}
+	if apiKey == "" {
+		return nil, fmt.Errorf("apiKey cannot be empty")
+	}
+
 	client, err := supabase.NewClient(apiURL, apiKey, &supabase.ClientOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Supabase client: %w", err)

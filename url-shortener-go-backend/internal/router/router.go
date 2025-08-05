@@ -7,31 +7,33 @@ import (
 	"time"
 
 	"url-shortener-go-backend/internal/handler"
-	"url-shortener-go-backend/internal/middleware"
 )
 
 type APIServer struct {
-	address        string
-	router         *http.ServeMux
-	server         *http.Server
-	h              *handler.URLHandler
-	middlewares    []func(http.Handler) http.Handler
-	authMiddleware *middleware.AuthMiddleware 
+	address          string
+	router           *http.ServeMux
+	server           *http.Server
+	urlHandler       *handler.URLHandler
+	analyticsHandler *handler.AnalyticsHandler
+	middlewares      []func(http.Handler) http.Handler
+	authMiddleware   func(http.Handler) http.Handler
 }
 
 func NewAPIServer(
 	addr string,
-	h *handler.URLHandler,
-	authMw *middleware.AuthMiddleware, 
+	urlHandler *handler.URLHandler,
+	analyticsHandler *handler.AnalyticsHandler,
+	authMw func(http.Handler) http.Handler,
 	mws ...func(http.Handler) http.Handler,
 ) *APIServer {
 	mux := http.NewServeMux()
 	s := &APIServer{
-		address:        addr,
-		router:         mux,
-		h:              h,
-		middlewares:    mws,
-		authMiddleware: authMw, 
+		address:          addr,
+		router:           mux,
+		urlHandler:       urlHandler,
+		analyticsHandler: analyticsHandler,
+		middlewares:      mws,
+		authMiddleware:   authMw,
 	}
 
 	s.routes()
@@ -65,31 +67,64 @@ func (s *APIServer) routes() {
 
 	s.router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[HealthCheck] %s %s", r.Method, r.URL.Path)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
+		handler.RespondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	s.router.Handle("/api/urls", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			s.h.HandleShorten()(w, r)
+			s.urlHandler.HandleShorten()(w, r) // Public shortening
 		case http.MethodGet:
-			protected := s.authMiddleware.Middleware(http.HandlerFunc(s.h.HandleGetUserUrls()))
+			protected := s.authMiddleware(http.HandlerFunc(s.urlHandler.HandleGetUserUrls()))
 			protected.ServeHTTP(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
 
-	s.router.HandleFunc("/api/url", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[/api/url] %s %s", r.Method, r.URL.Path)
-		s.h.HandleGetUrlByShortCode()(w, r)
+	s.router.HandleFunc("/api/urls/", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[HandleGetUrlByShortCode] %s %s", r.Method, r.URL.Path)
+		s.urlHandler.HandleGetUrlByShortCode()(w, r)
 	})
+
+	s.registerAnalyticsRoutes()
 
 	s.router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[ShortCodeHandler] %s %s", r.Method, r.URL.Path)
-		s.h.ShortCodeHandler()(w, r)
+		s.urlHandler.ShortCodeHandler()(w, r)
 	})
+}
+
+func (s *APIServer) registerAnalyticsRoutes() {
+	log.Println("[registerAnalyticsRoutes] Setting up analytics endpoints")
+
+	s.router.Handle("/api/analytics/dashboard", s.authMiddleware(
+		http.HandlerFunc(s.analyticsHandler.HandleGetDashboard()),
+	))
+
+	//query param
+	s.router.Handle("/api/analytics/urls", s.authMiddleware(
+		http.HandlerFunc(s.analyticsHandler.HandleGetTopURLs()),
+	))
+
+	s.router.Handle("/api/analytics/referrers", s.authMiddleware(
+		http.HandlerFunc(s.analyticsHandler.HandleGetTopReferrers()),
+	))
+
+	s.router.Handle("/api/analytics/devices", s.authMiddleware(
+		http.HandlerFunc(s.analyticsHandler.HandleGetDeviceBreakdown()),
+	))
+
+	//query param
+	s.router.Handle("/api/analytics/trend", s.authMiddleware(
+		http.HandlerFunc(s.analyticsHandler.HandleGetDailyTrend()),
+	))
+
+	s.router.Handle("/api/analytics/record", s.authMiddleware(
+		http.HandlerFunc(s.analyticsHandler.HandleRecordAnalytics()),
+	))
+
+	log.Println("[registerAnalyticsRoutes] Analytics routes registered successfully")
 }
 
 func (s *APIServer) withMiddleware(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
@@ -105,7 +140,7 @@ func (s *APIServer) cors() func(http.Handler) http.Handler {
 			origin := r.Header.Get("Origin")
 			log.Printf("[CORS] %s request from origin: %s", r.Method, origin)
 
-			w.Header().Set("Access-Control-Allow-Origin", "*") // 🔒 TODO: restrict in production
+			w.Header().Set("Access-Control-Allow-Origin", "*") //  TODO: Restrict in production
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 

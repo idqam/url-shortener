@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 
 	"url-shortener-go-backend/internal/model"
+	"url-shortener-go-backend/internal/utils"
 )
 
 type URLRepositoryImpl struct {
@@ -17,98 +19,64 @@ func NewURLRepository(baseRepo *SupabaseRepository) URLRepository {
 	return &URLRepositoryImpl{baseRepo}
 }
 
-func (u *URLRepositoryImpl) GetURLByShortCode(shortcode string) (*model.URL, error) {
+func (u *URLRepositoryImpl) GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error) {
 	resp, _, err := u.Client.
 		From("urls").
 		Select("*", "exact", false).
 		Eq("short_code", shortcode).
+		Single().
 		Execute()
 
 	if err != nil {
-		log.Printf("[GetURLByShortCode] Failed to fetch: %v", err)
-		return nil, fmt.Errorf("failed to fetch URL by shortcode: %w", err)
-	}
-	if len(resp) == 0 || string(resp) == "[]" {
-		log.Printf("[GetURLByShortCode] No result found for shortcode: %s", shortcode)
-		return nil, nil
+		return nil, fmt.Errorf("failed to fetch URL: %w", err)
 	}
 
-	var results []model.URL
-	if err := json.Unmarshal(resp, &results); err != nil {
-		log.Printf("[GetURLByShortCode] Unmarshal error: %v", err)
-		return nil, fmt.Errorf("failed to unmarshal URL data: %w", err)
+	var url model.URL
+	if err := json.Unmarshal(resp, &url); err != nil {
+		return nil, fmt.Errorf("failed to decode URL response: %w", err)
 	}
 
-	return &results[0], nil
+	url.PopulateShortURL()
+	return &url, nil
 }
 
-func (u *URLRepositoryImpl) GetURLByOriginalURL(original string) (*model.URL, error) {
+func (u *URLRepositoryImpl) GetUserUrls(ctx context.Context, userID string) ([]model.URL, error) {
 	resp, _, err := u.Client.
 		From("urls").
 		Select("*", "exact", false).
-		Eq("original_url", original).
+		Eq("user_id", userID).
 		Execute()
 
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "not found") ||
-			strings.Contains(err.Error(), "No rows") {
-			log.Printf("[GetURLByOriginalURL] No match for: %s", original)
-			return nil, nil
-		}
-		log.Printf("[GetURLByOriginalURL] Query error: %v", err)
-		return nil, fmt.Errorf("failed to fetch URL by original: %w", err)
-	}
-	if len(resp) == 0 || string(resp) == "[]" {
-		log.Printf("[GetURLByOriginalURL] Empty response for: %s", original)
-		return nil, nil
-	}
-
-	var results []model.URL
-	if err := json.Unmarshal(resp, &results); err != nil {
-		log.Printf("[GetURLByOriginalURL] Unmarshal error: %v", err)
-		return nil, fmt.Errorf("failed to unmarshal URL data: %w", err)
-	}
-	return &results[0], nil
-}
-
-func (u *URLRepositoryImpl) GetUserUrls(user model.User) ([]model.URL, error) {
-	resp, _, err := u.Client.
-		From("urls").
-		Select("*", "exact", false).
-		Eq("user_id", user.ID).
-		Execute()
-
-	if err != nil {
-		if strings.Contains(err.Error(), "No rows") ||
-			strings.Contains(strings.ToLower(err.Error()), "not found") {
-			log.Printf("[GetUserUrls] No URLs found for user ID: %s", user.ID)
-			return []model.URL{}, nil
-		}
-		log.Printf("[GetUserUrls] Query error: %v", err)
-		return nil, fmt.Errorf("failed to get user urls: %w", err)
+		return nil, fmt.Errorf("failed to fetch user URLs: %w", err)
 	}
 
 	var urls []model.URL
 	if err := json.Unmarshal(resp, &urls); err != nil {
-		log.Printf("[GetUserUrls] Unmarshal error: %v", err)
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to decode URLs: %w", err)
 	}
+
+	for i := range urls {
+		urls[i].PopulateShortURL()
+	}
+
 	return urls, nil
 }
 
-func (u *URLRepositoryImpl) IncrementClickCount(shortcode string) error {
+func (u *URLRepositoryImpl) IncrementClickCount(ctx context.Context, shortcode string) error {
 	err := u.Client.Rpc("increment_click_count", "", map[string]any{
 		"sc": shortcode,
 	})
 
 	if err != "" {
 		log.Printf("[IncrementClickCount] RPC failed for shortcode=%s: %s", shortcode, err)
-		return fmt.Errorf("failed to increment click amount: %s", err)
+		return fmt.Errorf("failed to increment click count: %s", err)
 	}
+
 	return nil
 }
 
-func (u *URLRepositoryImpl) SaveURL(url *model.URL) error {
+func (u *URLRepositoryImpl) SaveURL(ctx context.Context, url *model.URL) error {
 	data := map[string]interface{}{
 		"original_url": url.OriginalURL,
 		"short_code":   url.ShortCode,
@@ -116,8 +84,8 @@ func (u *URLRepositoryImpl) SaveURL(url *model.URL) error {
 		"click_count":  url.ClickCount,
 	}
 
-	if url.UserID != nil && *url.UserID != "" {
-		data["user_id"] = *url.UserID
+	if userID := url.UserID; userID != nil && *userID != "" {
+		data["user_id"] = *userID
 	}
 
 	resp, _, err := u.Client.
@@ -136,8 +104,10 @@ func (u *URLRepositoryImpl) SaveURL(url *model.URL) error {
 	}
 
 	var inserted []model.URL
-	if err := json.Unmarshal(resp, &inserted); err != nil || len(inserted) == 0 {
+	if err := json.Unmarshal(resp, &inserted); err != nil {
+
 		log.Printf("[SaveURL] Failed to decode insert response: %v", err)
+
 		var errResp struct {
 			Message string `json:"message"`
 			Code    string `json:"code"`
@@ -152,11 +122,53 @@ func (u *URLRepositoryImpl) SaveURL(url *model.URL) error {
 			}
 			return fmt.Errorf("supabase error: %s", errResp.Message)
 		}
+
 		return fmt.Errorf("failed to decode inserted URL: %s", string(resp))
 	}
 
+	if len(inserted) == 0 {
+		log.Printf("[SaveURL] Empty insert response")
+		return fmt.Errorf("no URL returned after insert")
+	}
+
 	*url = inserted[0]
+
 	url.PopulateShortURL()
 	log.Printf("[SaveURL] Insert successful: id=%s, short_code=%s", url.ID, url.ShortCode)
+	return nil
+}
+
+func (u *URLRepositoryImpl) SaveAnalytics(ctx context.Context, userID, urlID, referrer, deviceType string) error {
+	data := map[string]interface{}{
+		"url_id":      urlID,
+		"referrer":    referrer,
+		"device_type": deviceType,
+		"clicked_at":  utils.NowUTC(),
+	}
+
+	if userID != "" {
+		data["user_id"] = userID
+	}
+
+	resp, _, err := u.Client.
+		From("analytics").
+		Insert(data, false, "", "", "").
+		Execute()
+
+	if err != nil {
+		log.Printf("[SaveAnalytics] Insert failed: %v", err)
+		return fmt.Errorf("failed to save analytics: %w", err)
+	}
+
+	if len(resp) == 0 {
+		log.Printf("[SaveAnalytics] Empty insert response for url_id=%s", urlID)
+	} else {
+		userIDPart := "anonymous"
+		if userID != "" {
+			userIDPart = userID
+		}
+		log.Printf("[SaveAnalytics] Successfully saved analytics for url_id=%s, user_id=%s", urlID, userIDPart)
+	}
+
 	return nil
 }

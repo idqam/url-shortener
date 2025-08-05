@@ -2,15 +2,11 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"url-shortener-go-backend/internal/cache"
-
-	"github.com/golang-jwt/jwt"
 )
 
 type RateLimiter struct {
@@ -28,17 +24,10 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 
 		var key string
-
-		authHeader := r.Header.Get("Authorization")
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			token := strings.TrimPrefix(authHeader, "Bearer ")
-			userID, err := rl.extractUserIDFromToken(token)
-			if err == nil && userID != "" {
-				key = "ratelimit:user:" + userID
-			}
-		}
-
-		if key == "" {
+		userID := GetUserIDFromContext(ctx)
+		if userID != "" {
+			key = "ratelimit:user:" + userID
+		} else {
 			ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 			key = "ratelimit:ip:" + ip
 		}
@@ -67,28 +56,4 @@ func (rl *RateLimiter) increment(ctx context.Context, key string) (int, error) {
 		_ = rl.cache.Expire(ctx, key, rl.windowTTL)
 	}
 	return int(val), nil
-}
-
-func (rl *RateLimiter) extractUserIDFromToken(token string) (string, error) {
-	claims, err := ExtractClaimsFromToken(token)
-	if err != nil {
-
-		return "", nil
-	}
-	sub, ok := claims["sub"].(string)
-	if !ok {
-		return "", nil
-	}
-	return sub, nil
-}
-
-func ExtractClaimsFromToken(tokenStr string) (map[string]interface{}, error) {
-	token, _, err := new(jwt.Parser).ParseUnverified(tokenStr, jwt.MapClaims{})
-	if err != nil {
-		return nil, err
-	}
-	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		return claims, nil
-	}
-	return nil, fmt.Errorf("invalid claims type")
 }

@@ -1,52 +1,86 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 )
 
-type Analytics struct {
-    ID         string     `json:"id" db:"id"`
-    URLID      *string    `json:"url_id" db:"url_id"`
-    Country    *string    `json:"country" db:"country"`
-    Referrer   *string    `json:"referrer" db:"referrer"`
-    UserAgent  *string    `json:"user_agent" db:"user_agent"`
-    DeviceType *string    `json:"device_type" db:"device_type"`
-    Browser    *string    `json:"browser" db:"browser"`
-    OS         *string    `json:"os" db:"os"`
-    ClickedAt  time.Time  `json:"clicked_at" db:"clicked_at"`
+// DailyAnalytics represents aggregated daily statistics for a URL
+type DailyAnalytics struct {
+	ID              string    `json:"id" db:"id"`
+	URLID           string    `json:"url_id" db:"url_id"`
+	UserID          *string   `json:"user_id" db:"user_id"`
+	Date            time.Time `json:"date" db:"date"`
+	ClickCount      int       `json:"click_count" db:"click_count"`
+	UniqueReferrers int       `json:"unique_referrers" db:"unique_referrers"`
+	DesktopClicks   int       `json:"desktop_clicks" db:"desktop_clicks"`
+	MobileClicks    int       `json:"mobile_clicks" db:"mobile_clicks"`
+	TabletClicks    int       `json:"tablet_clicks" db:"tablet_clicks"`
+	UnknownClicks   int       `json:"unknown_clicks" db:"unknown_clicks"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
-type AnalyticsSummary struct {
-    TotalClicks    int64                    `json:"total_clicks"`
-    UniqueClicks   int64                    `json:"unique_clicks"`
-    ClicksByDay    []DailyStats             `json:"clicks_by_day"`
-    TopCountries   []CountryStats           `json:"top_countries"`
-    TopReferrers   []ReferrerStats          `json:"top_referrers"`
-    DeviceTypes    []DeviceStats            `json:"device_types"`
-    Browsers       []BrowserStats           `json:"browsers"`
+// UserAnalyticsSummary provides comprehensive analytics overview for user dashboard
+type UserAnalyticsSummary struct {
+	TotalURLs       int64             `json:"total_urls"`
+	TotalClicks     int64             `json:"total_clicks"`
+	ClicksToday     int64             `json:"clicks_today"`
+	ClicksYesterday int64             `json:"clicks_yesterday"`
+	AverageClicks   float64           `json:"average_clicks"`
+	TopURLs         []URLClickStats   `json:"top_urls"`
+	TopReferrers    []ReferrerStats   `json:"top_referrers"`
+	DeviceBreakdown []DeviceStats     `json:"device_breakdown"`
+	DailyClickTrend []DailyClickStats `json:"daily_click_trend"`
 }
 
-type DailyStats struct {
-    Date   string `json:"date"`
-    Clicks int64  `json:"clicks"`
+type URLClickStats struct {
+	URLID       string `json:"url_id"`
+	ShortCode   string `json:"short_code"`
+	OriginalURL string `json:"original_url"`
+	ClickCount  int64  `json:"click_count"`
+	CreatedAt   string `json:"created_at"`
 }
 
-type CountryStats struct {
-    Country string `json:"country"`
-    Clicks  int64  `json:"clicks"`
+func (u *URLClickStats) UnmarshalJSON(data []byte) error {
+
+	var temp struct {
+		ID          string `json:"id"`
+		ShortCode   string `json:"short_code"`
+		OriginalURL string `json:"original_url"`
+		ClickCount  int64  `json:"click_count"`
+		CreatedAt   string `json:"created_at"`
+	}
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	u.URLID = temp.ID
+	u.ShortCode = temp.ShortCode
+	u.OriginalURL = temp.OriginalURL
+	u.ClickCount = temp.ClickCount
+	u.CreatedAt = temp.CreatedAt
+
+	return nil
+}
+
+type DailyClickStats struct {
+	Date   string `json:"date"`
+	Clicks int64  `json:"clicks"`
 }
 
 type ReferrerStats struct {
-    Referrer string `json:"referrer"`
-    Clicks   int64  `json:"clicks"`
+	Referrer string `json:"referrer"`
+	Clicks   int64  `json:"clicks"`
 }
 
 type DeviceStats struct {
-    DeviceType string `json:"device_type"`
-    Clicks     int64  `json:"clicks"`
+	DeviceType string `json:"device_type"`
+	Clicks     int64  `json:"clicks"`
 }
 
-type BrowserStats struct {
-    Browser string `json:"browser"`
-    Clicks  int64  `json:"clicks"`
+type AnalyticsDateRange struct {
+	StartDate time.Time `json:"start_date"`
+	EndDate   time.Time `json:"end_date"`
 }

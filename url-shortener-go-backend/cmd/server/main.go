@@ -50,19 +50,23 @@ func main() {
 		log.Fatalf("[FATAL] Failed to create Supabase repository: %v", err)
 	}
 
-	jwtSecret := os.Getenv("SUPABASE_JWT_SECRET")
+	jwtSecret := os.Getenv("DB_API_URL")
 	if jwtSecret == "" {
-		log.Fatal("[FATAL] SUPABASE_JWT_SECRET is not set")
+		log.Fatal("[FATAL] DB_API_URL is not set")
 	}
 
-	authMw := middleware.NewAuthMiddleware(jwtSecret)
+	authMw := middleware.AuthMiddleware(jwtSecret)
 
 	urlRepo := repository.NewURLRepository(supabase)
+	analyticsRepo := repository.NewAnalyticsRepository(supabase)
 	urlService := service.NewURLService(urlRepo, rc)
 	urlHandler := handler.NewURLHandler(urlService, rc)
+	analyticsService := service.NewAnalyticsService(analyticsRepo, rc)
 
-	limiter := middleware.NewRateLimiter(rc, 10, 1*time.Minute) 
-	port := os.Getenv("PORT")
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
+
+	limiter := middleware.NewRateLimiter(rc, 10, 1*time.Minute)
+	port := os.Getenv("PORT") //change in prod
 	if port == "" {
 		port = "8080"
 	}
@@ -70,10 +74,11 @@ func main() {
 	server := router.NewAPIServer(
 		":"+port,
 		urlHandler,
-
-		authMw,             
-		limiter.Middleware, 
+		analyticsHandler,
+		authMw,
+		limiter.Middleware,
 	)
+
 	go func() {
 		if err := server.Run(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("[FATAL] HTTP server error: %v", err)
