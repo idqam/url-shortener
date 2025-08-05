@@ -1,6 +1,6 @@
-
 import { SignupForm } from "../components/SignUpForm";
-import { Link, LinkIcon } from "lucide-react";
+import { LinkIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const SignUpPage = () => {
   return (
@@ -21,7 +21,7 @@ export const SignUpPage = () => {
             </div>
           </div>
           <h2
-            className="text-4xl font-bold mb-2"
+            className="text-4xl font-bold mb-2 hover:bg-amber-500"
             style={{
               background: `linear-gradient(135deg, #A4193D 0%, #F4A261 100%)`,
               WebkitBackgroundClip: "text",
@@ -53,19 +53,7 @@ export const SignUpPage = () => {
           <div className="text-center">
             <Link
               to="/login"
-              className="inline-flex items-center px-6 py-2 border-2 rounded-xl font-semibold text-sm transition-all duration-200 hover:shadow-md"
-              style={{
-                borderColor: "#A4193D",
-                color: "#A4193D",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#A4193D";
-                e.currentTarget.style.color = "white";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = "#A4193D";
-              }}
+              className="inline-flex items-center px-6 py-2 border-2 rounded-xl font-semibold text-sm transition-all duration-200 hover:shadow-md border-[#A4193D] text-[#A4193D] hover:bg-[#A4193D] hover:text-white"
             >
               Sign In Instead
             </Link>

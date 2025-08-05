@@ -233,12 +233,9 @@ export const SignupForm = () => {
         className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-white font-semibold text-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:transform-none disabled:hover:shadow-lg"
         style={{
           background:
-            isLoading ||
-            !isValidEmail(email) ||
-            !isValidPassword(password) ||
-            !passwordsMatch
-              ? "#6B7280"
-              : `linear-gradient(135deg, #A4193D 0%, #F4A261 100%)`,
+            isLoading || !isValidEmail(email) || !isValidPassword(password)
+              ? "#3B82F6"
+              : "#3B82F6",
         }}
       >
         {isLoading ? (
