@@ -9,8 +9,7 @@ import type {
   DeviceBreakdownResponse,
   DailyTrendResponse,
 } from "../dtos/analyticsDto";
-
-export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+import { API_BASE } from "../constants/apiBase";
 
 async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
@@ -133,7 +132,7 @@ export function useTopReferrers(token: string, params?: AnalyticsParams) {
     queryKey: ["analytics-top-referrers", params],
     queryFn: () => getTopReferrers(token, params),
     enabled: !!token,
-    staleTime: 5 * 60 * 1000, 
+    staleTime: 5 * 60 * 1000,
   });
 }
 
