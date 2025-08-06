@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-var BaseDomain = os.Getenv("SHORT_DOMAIN") // Local dev domain will change in prod
 
 type URL struct {
 	ID          string    `json:"id"`
@@ -28,7 +27,9 @@ type URLSubset struct {
 }
 
 func (u *URL) PopulateShortURL() {
-	BaseDomain = "https://url-shortener-backend-an0e.onrender.com"
-
-	u.ShortURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(BaseDomain, "/"), u.ShortCode)
+	baseDomain := os.Getenv("SHORT_DOMAIN")
+	if baseDomain == "" {
+		baseDomain = "http://localhost:8080"
+	}
+	u.ShortURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(baseDomain, "/"), u.ShortCode)
 }
