@@ -17,7 +17,16 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   isAuthenticated: false,
 
   login: (userId, accessToken) =>
-    set({ userId, accessToken, isAuthenticated: true }),
+    set((state) => {
+      if (
+        state.userId === userId &&
+        state.accessToken === accessToken &&
+        state.isAuthenticated
+      ) {
+        return state;
+      }
+      return { userId, accessToken, isAuthenticated: true };
+    }),
 
   logout: () => {
     supabase.auth.signOut();

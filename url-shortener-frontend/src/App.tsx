@@ -16,15 +16,6 @@ function App() {
   const queryClient = new QueryClient();
 
   useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.user && data.session?.access_token) {
-        login(data.session.user.id, data.session.access_token);
-      }
-    };
-
-    init();
-
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session?.user && session?.access_token) {

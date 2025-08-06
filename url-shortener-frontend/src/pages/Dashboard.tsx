@@ -150,8 +150,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return <div>No analytics data available</div>;
   }
 
-  const { overview, top_urls, top_referrers, device_breakdown, daily_trend } =
-    dashboard;
+  const {
+    overview = null,
+    top_urls = [],
+    top_referrers = [],
+    device_breakdown = [],
+    daily_trend = [],
+  } = dashboard;
 
   const formatDeviceType = (deviceType: string | null | undefined): string => {
     if (!deviceType) return "Unknown";
@@ -197,14 +202,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   };
 
   const getTrendIcon = () => {
-    if (overview.trend_direction === "up")
+    if (overview?.trend_direction === "up")
       return (
         <ArrowUp
           className="h-5 w-5"
           style={{ color: analyticsColors.success }}
         />
       );
-    if (overview.trend_direction === "down")
+    if (overview?.trend_direction === "down")
       return (
         <ArrowDown
           className="h-5 w-5"
@@ -245,14 +250,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             style={{ backgroundColor: analyticsColors.cardBg }}
           >
             <div className="flex items-center justify-center space-x-4 mb-4">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${analyticsColors.gradient1}, ${analyticsColors.gradient2})`,
-                }}
-              >
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
               <h1
                 className="text-4xl font-black bg-clip-text text-transparent"
                 style={{
@@ -292,25 +289,25 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total URLs"
-            value={overview.total_urls.toLocaleString()}
+            value={overview?.total_urls.toLocaleString() ?? 0}
             leftIcon={<Link className="w-5 h-5 text-[rgb(164,25,61)]" />}
             rightIcon={<Zap className="w-5 h-5 text-[#F4A261]" />}
           />
           <StatCard
             title="Total Clicks"
-            value={overview.total_clicks.toLocaleString()}
+            value={overview?.total_clicks.toLocaleString() ?? 0}
             leftIcon={<MousePointer className="w-5 h-5 text-[#F4A261]" />}
             rightIcon={<Activity className="w-5 h-5 text-[#A4193D]" />}
           />
           <StatCard
             title="Clicks Today"
-            value={overview.clicks_today.toLocaleString()}
+            value={overview?.clicks_today.toLocaleString() ?? 0}
             leftIcon={<Calendar className="w-5 h-5 text-[#2A9D8F]" />}
             rightIcon={getTrendIcon()}
           />
           <StatCard
             title="Avg Clicks/URL"
-            value={overview.average_clicks.toFixed(1)}
+            value={overview?.average_clicks.toFixed(1) ?? 0}
             leftIcon={<BarChart3 className="w-5 h-5 text-[#F59E0B]" />}
             rightIcon={<Zap className="w-5 h-5 text-[#F4A261]" />}
           />
@@ -455,7 +452,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                       >
                         {deviceChartData.map((entry, index) => (
                           <Cell
-                            key={`${entry}`}
+                            key={`${index}-${entry}`}
                             fill={pieColors[index % pieColors.length]}
                           />
                         ))}
@@ -634,7 +631,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
                   return (
                     <div
-                      key={index}
+                      key={`${index}-${referrer}`}
                       className="relative p-4 rounded-2xl bg-white/30 hover:bg-white/50 transition-all duration-300"
                     >
                       <div className="absolute inset-0 rounded-2xl overflow-hidden">
