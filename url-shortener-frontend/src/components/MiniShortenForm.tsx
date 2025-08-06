@@ -48,7 +48,7 @@ export function MiniShortenerForm() {
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Paste a URL"
           required
-          className="flex-1 px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-white/30 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
+          className="flex-1 px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-green-600 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <button
           type="submit"

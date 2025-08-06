@@ -31,26 +31,8 @@ import {
 import { useAnalyticsDashboard } from "../api/analytics";
 import { StatCard } from "../components/StatsCard";
 import { MiniShortenerForm } from "../components/MiniShortenForm";
-
-const analyticsColors = {
-  primary: "#A4193D",
-  secondary: "#FFDFB9",
-  accent: "#F4A261",
-  neutral: "#2A9D8F",
-  background: "#F2EFDE",
-  cardBg: "rgba(255, 255, 255, 0.7)",
-  text: "#111827",
-  textLight: "#6B7280",
-  success: "#10B981",
-  danger: "#EF4444",
-  warning: "#F59E0B",
-  info: "#3B82F6",
-  gradient1: "#A4193D",
-  gradient2: "#F4A261",
-  gradient3: "#2A9D8F",
-  chartLine: "#A4193D",
-  chartArea: "rgba(164, 25, 61, 0.1)",
-};
+import SignOutButton from "../components/SignOutButton";
+import { analyticsColors } from "../constants/colors";
 
 const pieColors = [
   analyticsColors.primary,
@@ -80,7 +62,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         className="min-h-screen relative overflow-hidden"
         style={{ backgroundColor: analyticsColors.background }}
       >
-        <div className="absolute inset-0 opacity-20">
+        <div className="">
           <div
             className="absolute top-20 left-10 w-72 h-72 rounded-full mix-blend-multiply filter blur-xl animate-pulse"
             style={{
@@ -253,31 +235,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
   return (
     <div
-      className="min-h-screen relative overflow-hidden"
+      className="min-h-screen relative overflow-hidden "
       style={{ backgroundColor: analyticsColors.background }}
     >
-      <div className="absolute inset-0 opacity-20">
-        <div
-          className="absolute top-20 left-10 w-72 h-72 rounded-full mix-blend-multiply filter blur-xl animate-pulse"
-          style={{
-            background: `linear-gradient(135deg, ${analyticsColors.gradient1}, ${analyticsColors.gradient2})`,
-          }}
-        ></div>
-        <div
-          className="absolute top-40 right-10 w-96 h-96 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-700"
-          style={{
-            background: `linear-gradient(135deg, ${analyticsColors.gradient3}, ${analyticsColors.secondary})`,
-          }}
-        ></div>
-        <div
-          className="absolute bottom-40 left-1/2 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-1000"
-          style={{
-            background: `linear-gradient(135deg, ${analyticsColors.gradient2}, ${analyticsColors.gradient1})`,
-          }}
-        ></div>
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 ">
         <header className="text-center mb-12">
           <div
             className="inline-block backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 p-8 hover:shadow-3xl transition-all duration-500"
@@ -307,25 +268,27 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             >
               Track your URL performance with insights
             </p>
-
-            <button
-              onClick={() => setShowShortener((prev) => !prev)}
-              className="mt-6 px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:scale-105"
-              style={{
-                backgroundImage: `linear-gradient(135deg, ${analyticsColors.gradient1}, ${analyticsColors.gradient2})`,
-              }}
-            >
-              {showShortener ? "Hide Shortener" : "Quick Shorten"}
-            </button>
-
-            {showShortener && (
-              <div className="mt-6 w-full max-w-xl mx-auto">
-                <MiniShortenerForm />
-              </div>
-            )}
+            <div className="flex space-x-4 justify-center relative">
+              <button
+                onClick={() => setShowShortener((prev) => !prev)}
+                className="mt-6 px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:scale-105"
+                style={{
+                  backgroundImage: `linear-gradient(135deg, ${analyticsColors.gradient1}, ${analyticsColors.gradient2})`,
+                }}
+              >
+                {showShortener ? "Hide Shortener" : "Quick Shorten"}
+              </button>
+              <SignOutButton />
+            </div>
           </div>
         </header>
-
+        <div className="transition-all duration-300 min-h-[80px] mt-4">
+          {showShortener && (
+            <div className="max-w-xl mx-auto">
+              <MiniShortenerForm />
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total URLs"

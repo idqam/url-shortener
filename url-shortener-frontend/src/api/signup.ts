@@ -12,9 +12,9 @@ export async function signupAndRegister(email: string, password: string) {
   const session = signupData.session;
 
   if (!session || !user) {
-    console.log("SignUp result:", signupError);
+    console.log("SignUp result:", signupData);
     throw new Error(
-      "Sign-up failed to return a session. Try logging in manually."
+      "Please check your email to confirm your account before logging in."
     );
   }
 

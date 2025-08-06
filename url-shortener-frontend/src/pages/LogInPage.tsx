@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../api/login";
 import { useAuthStore } from "../store/AuthStore";
 import { supabase } from "../lib/supabaseClient";
-import { Eye, EyeOff, Link as LinkIcon, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 const USE_DUMMY_USER = import.meta.env.VITE_USE_DUMMY_USER === "true";
 
@@ -65,16 +65,7 @@ const LoginPage = () => {
     >
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="flex justify-center items-center mb-6">
-            <div
-              className="p-4 rounded-2xl shadow-lg"
-              style={{
-                background: `linear-gradient(135deg, #A4193D 0%, #F4A261 100%)`,
-              }}
-            >
-              <LinkIcon className="h-12 w-12 text-white" />
-            </div>
-          </div>
+          <div className="flex justify-center items-center mb-6"></div>
           <h2
             className="text-4xl font-bold mb-2"
             style={{

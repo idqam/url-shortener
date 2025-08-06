@@ -1,5 +1,4 @@
 import { SignupForm } from "../components/SignUpForm";
-import { LinkIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export const SignUpPage = () => {
@@ -10,16 +9,7 @@ export const SignUpPage = () => {
     >
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="flex justify-center items-center mb-6">
-            <div
-              className="p-4 rounded-2xl shadow-lg"
-              style={{
-                background: `linear-gradient(135deg, #A4193D 0%, #F4A261 100%)`,
-              }}
-            >
-              <LinkIcon className="h-12 w-12 text-white" />
-            </div>
-          </div>
+          <div className="flex justify-center items-center mb-6"></div>
           <h2
             className="text-4xl font-bold mb-2 hover:bg-amber-500"
             style={{
