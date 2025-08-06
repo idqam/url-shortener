@@ -6,6 +6,8 @@ toolchain go1.23.11
 
 require github.com/joho/godotenv v1.5.1
 
+require github.com/unrolled/secure v1.17.0 // indirect
+
 require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect

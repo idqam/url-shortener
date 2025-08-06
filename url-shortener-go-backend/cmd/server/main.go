@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
 	"url-shortener-go-backend/internal/cache"
 	"url-shortener-go-backend/internal/handler"
 	"url-shortener-go-backend/internal/middleware"
@@ -30,10 +29,10 @@ func main() {
 	if redisURL != "" {
 		addr, password, err := parseRedisURL(redisURL)
 		if err != nil {
-			log.Printf("[WARN] Invalid REDIS_URL. Cache disabled: %v", err)
+			log.Println("[WARN] Invalid REDIS_URL format. Cache disabled.")
 		} else {
 			rc = cache.NewRedisCache(addr, password, 0, 24*time.Hour)
-			log.Printf("[INFO] Redis cache enabled at %s", addr)
+			log.Printf("[INFO] Redis cache enabled")
 		}
 	} else {
 		log.Println("[INFO] REDIS_URL not provided. Cache is disabled.")
@@ -42,31 +41,36 @@ func main() {
 	apiKey := os.Getenv("SERVICE_ROLE")
 	apiURL := os.Getenv("DB_API_URL")
 	if apiKey == "" || apiURL == "" {
-		log.Fatal("[FATAL] SERVICE_ROLE or DB_API_URL environment variable is missing")
+		log.Fatal("[FATAL] Required environment variables are missing")
 	}
 
 	supabase, err := repository.NewSupabaseRepository(apiURL, apiKey)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to create Supabase repository: %v", err)
+		log.Fatal("[FATAL] Failed to initialize database connection")
 	}
 
 	jwtSecret := os.Getenv("DB_API_URL")
 	if jwtSecret == "" {
-		log.Fatal("[FATAL] DB_API_URL is not set")
+		log.Fatal("[FATAL] JWT_SECRET environment variable is required")
 	}
 
 	authMw := middleware.AuthMiddleware(jwtSecret)
-
 	urlRepo := repository.NewURLRepository(supabase)
 	analyticsRepo := repository.NewAnalyticsRepository(supabase)
 	urlService := service.NewURLService(urlRepo, rc)
 	urlHandler := handler.NewURLHandler(urlService, rc)
 	analyticsService := service.NewAnalyticsService(analyticsRepo, rc)
-
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 
-	limiter := middleware.NewRateLimiter(rc, 10, 1*time.Minute)
-	port := os.Getenv("PORT") //change in prod
+	var rateLimiterConfig *middleware.RateLimiterConfig
+	if os.Getenv("ENVIRONMENT") == "development" {
+		rateLimiterConfig = middleware.DevelopmentRateLimiterConfig()
+	} else {
+		rateLimiterConfig = middleware.ProductionRateLimiterConfig()
+	}
+	limiter := middleware.NewRateLimiter(rc, rateLimiterConfig)
+
+	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
@@ -81,23 +85,27 @@ func main() {
 
 	go func() {
 		if err := server.Run(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("[FATAL] HTTP server error: %v", err)
+			log.Fatal("[FATAL] Server failed to start")
 		}
 	}()
-	log.Printf("[INFO] HTTP server listening on :%s", port)
+
+	log.Printf("[INFO] Server listening on port %s", port)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
-	log.Println("[INFO] Received shutdown signal")
+
+	log.Println("[INFO] Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("[ERROR] Server shutdown failed: %v", err)
+		log.Println("[ERROR] Server shutdown timed out")
+		os.Exit(1)
 	}
-	log.Println("[INFO] Server exited cleanly")
+
+	log.Println("[INFO] Server stopped")
 }
 
 func parseRedisURL(raw string) (addr, password string, err error) {

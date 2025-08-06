@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"url-shortener-go-backend/internal/handler"
+	"url-shortener-go-backend/internal/middleware"
 )
 
 type APIServer struct {
@@ -38,7 +39,7 @@ func NewAPIServer(
 
 	s.routes()
 
-	allMiddlewares := append(s.middlewares, s.cors())
+	allMiddlewares := append(s.middlewares, s.cors(), middleware.SecurityHeaders())
 
 	s.server = &http.Server{
 		Addr:         s.address,

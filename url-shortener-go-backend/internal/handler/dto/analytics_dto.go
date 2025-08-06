@@ -62,3 +62,15 @@ type DailyTrendAnalyticsResponse struct {
 	Trend []DailyTrendResponse `json:"trend"`
 	Days  int                  `json:"days"`
 }
+
+type RecordAnalyticsRequest struct {
+	URLID      string `json:"url_id"`
+	Referrer   string `json:"referrer,omitempty"`
+	DeviceType string `json:"device_type,omitempty"`
+}
+
+type RecordAnalyticsResponse struct {
+	Status    string `json:"status"`
+	Timestamp int64  `json:"timestamp"`
+	RequestID string `json:"request_id"`
+}

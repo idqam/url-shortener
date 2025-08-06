@@ -24,6 +24,28 @@ func NewAnalyticsService(analyticsRepo repository.AnalyticsRepository, cache cac
 	}
 }
 
+func isValidSummary(summary *model.UserAnalyticsSummary) bool {
+	return summary != nil &&
+		summary.DailyClickTrend != nil &&
+		summary.DeviceBreakdown != nil &&
+		summary.TopReferrers != nil &&
+		summary.TopURLs != nil
+}
+func normalizeSummary(summary *model.UserAnalyticsSummary) {
+	if summary.TopURLs == nil {
+		summary.TopURLs = []model.URLClickStats{}
+	}
+	if summary.TopReferrers == nil {
+		summary.TopReferrers = []model.ReferrerStats{}
+	}
+	if summary.DeviceBreakdown == nil {
+		summary.DeviceBreakdown = []model.DeviceStats{}
+	}
+	if summary.DailyClickTrend == nil {
+		summary.DailyClickTrend = []model.DailyClickStats{}
+	}
+}
+
 func (s *AnalyticsServiceImpl) GetUserDashboard(ctx context.Context, userID string) (*model.UserAnalyticsSummary, error) {
 	cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
 	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
@@ -36,6 +58,17 @@ func (s *AnalyticsServiceImpl) GetUserDashboard(ctx context.Context, userID stri
 
 	log.Printf("[GetUserDashboard] Cache MISS for user: %s", userID)
 	summary, err := s.analyticsRepo.GetUserAnalyticsSummary(ctx, userID)
+	if summary != nil && isValidSummary(summary) {
+		if jsonVal, err := json.Marshal(summary); err == nil {
+			_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
+			log.Printf("[GetUserDashboard] Cached analytics for user: %s", userID)
+		}
+
+		if summary != nil {
+			normalizeSummary(summary)
+		}
+
+	}
 	if err != nil {
 		log.Printf("[GetUserDashboard] Failed to get analytics summary for user %s: %v", userID, err)
 		return nil, fmt.Errorf("failed to get user dashboard: %w", err)

@@ -33,7 +33,7 @@ func (h *URLHandler) HandleShorten() http.HandlerFunc {
 
 		var req dto.ShortenURLRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.OriginalURL) == "" {
-			respondError(w, http.StatusBadRequest, "Invalid or missing URL")
+			utils.RespondError(w, http.StatusBadRequest, "Invalid or missing URL", "")
 			return
 		}
 
@@ -63,11 +63,11 @@ func (h *URLHandler) HandleShorten() http.HandlerFunc {
 		urlModel, err := h.svc.CreateShortURL(ctx, strings.TrimSpace(req.OriginalURL), req.IsPublic, userIDPtr, int(req.CodeLength))
 		if err != nil {
 			log.Printf("[CreateShortURL] failed: %v", err)
-			respondError(w, http.StatusInternalServerError, "Failed to shorten URL")
+			utils.RespondError(w, http.StatusInternalServerError, "Failed to shorten URL", "")
 			return
 		}
 
-		RespondJSON(w, http.StatusCreated, mapper.ToShortenURLResponse(*urlModel))
+		utils.RespondJSON(w, http.StatusCreated, mapper.ToShortenURLResponse(*urlModel), "")
 	}
 }
 
@@ -80,18 +80,18 @@ func (h *URLHandler) HandleGetUserUrls() http.HandlerFunc {
 
 		userID := middleware.GetUserIDFromContext(r.Context())
 		if userID == "" {
-			respondError(w, http.StatusUnauthorized, "Unauthorized")
+			utils.RespondError(w, http.StatusUnauthorized, "Unauthorized", "")
 			return
 		}
 
 		urls, err := h.svc.GetUserUrls(r.Context(), userID)
 		if err != nil {
 			log.Printf("[GetUserUrls] failed: %v", err)
-			respondError(w, http.StatusInternalServerError, "Could not fetch URLs")
+			utils.RespondError(w, http.StatusInternalServerError, "Could not fetch URLs", "")
 			return
 		}
+		utils.RespondJSON(w, http.StatusOK, mapper.ToGetUrlsResponse(urls), "")
 
-		RespondJSON(w, http.StatusOK, mapper.ToGetUrlsResponse(urls))
 	}
 }
 
@@ -105,18 +105,18 @@ func (h *URLHandler) HandleGetUrlByShortCode() http.HandlerFunc {
 		shortcode := strings.TrimPrefix(r.URL.Path, "/api/urls/")
 		shortcode = strings.TrimSpace(shortcode)
 		if shortcode == "" {
-			respondError(w, http.StatusBadRequest, "Shortcode is required")
+			utils.RespondError(w, http.StatusBadRequest, "Shortcode is required", "")
 			return
 		}
 
 		ctx := r.Context()
 		url, err := h.svc.GetURLByShortCode(ctx, shortcode)
 		if err != nil || url == nil {
-			respondError(w, http.StatusNotFound, "URL not found")
+			utils.RespondError(w, http.StatusNotFound, "URL not found", "")
 			return
 		}
+		utils.RespondJSON(w, http.StatusOK, mapper.ToGetURLByShortCodeResponse(*url), "")
 
-		RespondJSON(w, http.StatusOK, mapper.ToGetURLByShortCodeResponse(*url))
 	}
 }
 
@@ -140,14 +140,14 @@ func (h *URLHandler) HandleRedirect() http.HandlerFunc {
 
 		shortcode := strings.Trim(r.URL.Path, "/")
 		if shortcode == "" {
-			respondError(w, http.StatusBadRequest, "Missing shortcode")
+			utils.RespondError(w, http.StatusBadRequest, "Missing shortcode", "")
 			return
 		}
 
 		ctx := r.Context()
 		urlEntry, err := h.svc.GetURLByShortCode(ctx, shortcode)
 		if err != nil || urlEntry == nil || urlEntry.OriginalURL == "" {
-			respondError(w, http.StatusNotFound, "URL not found")
+			utils.RespondError(w, http.StatusNotFound, "URL not found", "")
 			return
 		}
 
@@ -177,18 +177,4 @@ func getUserIDOrAnonymous(userID string) string {
 		return "anonymous"
 	}
 	return userID
-}
-
-func RespondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("JSON encode error: %v", err)
-	}
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	log.Printf("[Error] %d: %s", status, message)
-	RespondJSON(w, status, dto.ErrorResponse{Error: message})
 }
