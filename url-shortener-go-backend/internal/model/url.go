@@ -2,11 +2,12 @@ package model
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
 
-const BaseDomain = "http://localhost:8080" // Local dev domain will change in prod
+var BaseDomain = os.Getenv("SHORT_DOMAIN") // Local dev domain will change in prod
 
 type URL struct {
 	ID          string    `json:"id"`
@@ -27,5 +28,10 @@ type URLSubset struct {
 }
 
 func (u *URL) PopulateShortURL() {
+	if BaseDomain == "" {
+		BaseDomain = "http://localhost:8080"
+
+	}
+
 	u.ShortURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(BaseDomain, "/"), u.ShortCode)
 }
