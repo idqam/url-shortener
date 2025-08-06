@@ -75,7 +75,7 @@ func (s *URLServiceImpl) CreateShortURL(ctx context.Context, originalURL string,
 		break
 	}
 
-	url.PopulateShortURL()
+	
 
 	if jsonVal, err := json.Marshal(url); err == nil {
 		_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
