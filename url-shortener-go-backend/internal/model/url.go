@@ -28,10 +28,7 @@ type URLSubset struct {
 }
 
 func (u *URL) PopulateShortURL() {
-	if BaseDomain == "" {
-		BaseDomain = "http://localhost:8080"
-
-	}
+	BaseDomain = "https://url-shortener-backend-an0e.onrender.com"
 
 	u.ShortURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(BaseDomain, "/"), u.ShortCode)
 }
