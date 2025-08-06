@@ -174,7 +174,7 @@ export const Home = () => {
                     { title: "Custom Domains", desc: "brand.ly/link" },
                     {
                       title: "Advanced Analytics",
-                      desc: "Click tracking & fine-grain insights and trends",
+                      desc: "Fine-grain insights and trends",
                     },
                     { title: "QR Code Generator", desc: "Instant QR codes" },
                   ].map((item, index) => (
