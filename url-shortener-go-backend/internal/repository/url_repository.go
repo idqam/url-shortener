@@ -22,8 +22,8 @@ func NewURLRepository(baseRepo *SupabaseRepository) URLRepository {
 func (u *URLRepositoryImpl) GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error) {
 	resp, _, err := u.Client.
 		From("urls").
-		Select("*", "exact", false).
-		Eq("short_code", shortcode).
+Select("original_url,short_code", "exact", false).
+	Eq("short_code", shortcode).
 		Single().
 		Execute()
 
@@ -36,7 +36,7 @@ func (u *URLRepositoryImpl) GetURLByShortCode(ctx context.Context, shortcode str
 		return nil, fmt.Errorf("failed to decode URL response: %w", err)
 	}
 
-	url.PopulateShortURL()
+	//
 	return &url, nil
 }
 
