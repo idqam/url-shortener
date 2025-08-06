@@ -8,7 +8,6 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE } from "../constants/apiBase";
 
-//import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
   const contentType = res.headers.get("Content-Type") || "";
