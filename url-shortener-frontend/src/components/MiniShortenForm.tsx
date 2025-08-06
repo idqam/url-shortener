@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/AuthStore";
 import { useShortenURL } from "../api/urls";
+import { isValidUrl } from "../utils/isValidUrl";
 
 export function MiniShortenerForm() {
   const [url, setUrl] = useState("");
@@ -12,7 +13,15 @@ export function MiniShortenerForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url) return;
+    if (!url) {
+      setError("Please enter a URL.");
+      return;
+    }
+
+    if (!isValidUrl(url)) {
+      setError("Please enter a valid URL (http/https).");
+      return;
+    }
     try {
       const data = await shorten({
         url,

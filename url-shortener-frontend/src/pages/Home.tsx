@@ -1,23 +1,22 @@
 import { useNavigate } from "react-router-dom";
 import { ShortenerForm } from "../components/ShortenerForm";
-import { useEffect, useState } from "react";
 
 export const Home = () => {
   const navigate = useNavigate();
-  const [scrollY, setScrollY] = useState(0);
+  // const [scrollY, setScrollY] = useState(0);
 
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  // useEffect(() => {
+  //   const handleScroll = () => setScrollY(window.scrollY);
+  //   window.addEventListener("scroll", handleScroll);
+  //   return () => window.removeEventListener("scroll", handleScroll);
+  // }, []);
 
   return (
     <div
       className="min-h-screen relative overflow-hidden"
       style={{ backgroundColor: "#F2EFDE" }}
     >
-      <div
+      {/* <div
         className="absolute inset-0 opacity-20"
         style={{ transform: `translateY(${scrollY * 0.5}px)` }}
       >
@@ -33,7 +32,7 @@ export const Home = () => {
           className="absolute bottom-40 left-1/2 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-1000"
           style={{ background: "linear-gradient(135deg, #F4A261, #A4193D)" }}
         ></div>
-      </div>
+      </div> */}
 
       <section className="relative z-10 px-6 py-8">
         <div className="flex justify-center pt-8 mb-16">
