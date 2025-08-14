@@ -58,7 +58,12 @@ func (a *AnalyticsRepositoryImpl) SaveAnalytics(ctx context.Context, userID, url
 func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, userID string) (*model.UserAnalyticsSummary, error) {
 	log.Printf("[GetUserAnalyticsSummary] Creating summary with CALCULATED stats for user: %s", userID)
 
-	summary := &model.UserAnalyticsSummary{}
+	summary := &model.UserAnalyticsSummary{
+    TopURLs:          []model.URLClickStats{},
+    TopReferrers:     []model.ReferrerStats{},
+    DeviceBreakdown:  []model.DeviceStats{},
+    DailyClickTrend:  []model.DailyClickStats{},
+}
 
 	topURLs, err := a.GetUserTopURLs(ctx, userID, 100)
 	if err != nil {
@@ -133,13 +138,13 @@ func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, u
 	}
 
 	dailyTrend, err = a.GetUserDailyClicks(ctx, userID, 7)
-	if err != nil {
-		log.Printf("[GetUserAnalyticsSummary] Failed to get daily trend: %v", err)
-		summary.DailyClickTrend = []model.DailyClickStats{}
-	} else {
-		summary.DailyClickTrend = dailyTrend
-		log.Printf("[GetUserAnalyticsSummary] Got %d days of trend data", len(dailyTrend))
-	}
+if err != nil {
+    log.Printf("[GetUserAnalyticsSummary] Failed to get daily trend: %v", err)
+    summary.DailyClickTrend = []model.DailyClickStats{}
+} else {
+    summary.DailyClickTrend = dailyTrend
+    log.Printf("[GetUserAnalyticsSummary] Got %d days of trend data", len(dailyTrend))
+}
 
 	log.Printf("[GetUserAnalyticsSummary] ✅ Successfully created CALCULATED summary for user %s", userID)
 	return summary, nil
@@ -225,29 +230,48 @@ func (a *AnalyticsRepositoryImpl) GetUserTopURLs(ctx context.Context, userID str
 	return urls, nil
 }
 
+func fillMissingDays(data []model.DailyClickStats, days int) []model.DailyClickStats {
+    today := time.Now()
+
+    clicksByDate := make(map[string]int64)
+    for _, d := range data {
+        clicksByDate[d.Date] = d.Clicks
+    }
+
+    result := make([]model.DailyClickStats, days)
+    for i := 0; i < days; i++ {
+        date := today.AddDate(0, 0, -(days-1-i)).Format("2006-01-02")
+        result[i] = model.DailyClickStats{
+            Date:   date,
+            Clicks: clicksByDate[date], 
+        }
+    }
+    return result
+}
+
 func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID string, days int) ([]model.DailyClickStats, error) {
-	startDate := time.Now().AddDate(0, 0, -days+1).Format("2006-01-02")
+    startDate := time.Now().AddDate(0, 0, -days+1).Format("2006-01-02")
 
-	resp, _, err := a.Client.
-		From("daily_analytics").
-		Select("date, SUM(click_count) as clicks", "exact", false).
-		Eq("user_id", userID).
-		Gte("date", startDate).
-		Order("date", &postgrest.OrderOpts{Ascending: true}).
-		Execute()
+    resp, _, err := a.Client.
+        From("daily_analytics").
+        Select("date, SUM(click_count) as clicks", "exact", false).
+        Eq("user_id", userID).
+        Gte("date", startDate).
+        Order("date", &postgrest.OrderOpts{Ascending: true}).
+        Execute()
 
-	if err != nil {
+    if err != nil {
+        return a.getUserDailyClicksFromRaw(ctx, userID, days)
+    }
 
-		return a.getUserDailyClicksFromRaw(ctx, userID, days)
-	}
+    var dailyClicks []model.DailyClickStats
+    if err := json.Unmarshal(resp, &dailyClicks); err != nil {
+        return a.getUserDailyClicksFromRaw(ctx, userID, days)
+    }
 
-	var dailyClicks []model.DailyClickStats
-	if err := json.Unmarshal(resp, &dailyClicks); err != nil {
+    dailyClicks = fillMissingDays(dailyClicks, days)
 
-		return a.getUserDailyClicksFromRaw(ctx, userID, days)
-	}
-
-	return dailyClicks, nil
+    return dailyClicks, nil
 }
 
 func (a *AnalyticsRepositoryImpl) getUserDailyClicksFromRaw(ctx context.Context, userID string, days int) ([]model.DailyClickStats, error) {
@@ -315,7 +339,6 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		return nil, fmt.Errorf("failed to fetch referrer data: %w", err)
 	}
 
-	// Handle empty response
 	if len(resp) == 0 || string(resp) == "[]" || string(resp) == "" {
 		log.Printf("[GetUserTopReferrers] No referrer data found for user %s", userID)
 		return []model.ReferrerStats{}, nil
@@ -329,7 +352,6 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		return []model.ReferrerStats{}, nil
 	}
 
-	// Count referrers manually
 	referrerCounts := make(map[string]int64)
 	for _, record := range analytics {
 		if record.Referrer != "" {
@@ -337,7 +359,6 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		}
 	}
 
-	// Convert to slice and sort by count
 	var referrers []model.ReferrerStats
 	for referrer, count := range referrerCounts {
 		referrers = append(referrers, model.ReferrerStats{
@@ -346,7 +367,6 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		})
 	}
 
-	// Sort by clicks (descending) and limit
 	if len(referrers) > 1 {
 		for i := 0; i < len(referrers)-1; i++ {
 			for j := i + 1; j < len(referrers); j++ {
@@ -357,7 +377,6 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		}
 	}
 
-	// Apply limit
 	if len(referrers) > limit {
 		referrers = referrers[:limit]
 	}
@@ -366,9 +385,7 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 	return referrers, nil
 }
 
-// GetUserDeviceBreakdown returns device type breakdown for a user from daily_analytics
 func (a *AnalyticsRepositoryImpl) GetUserDeviceBreakdown(ctx context.Context, userID string) ([]model.DeviceStats, error) {
-	// Use daily_analytics for efficient aggregated device data
 	resp, _, err := a.Client.
 		From("daily_analytics").
 		Select(`
@@ -385,22 +402,18 @@ func (a *AnalyticsRepositoryImpl) GetUserDeviceBreakdown(ctx context.Context, us
 		Execute()
 
 	if err != nil {
-		// Fallback to raw analytics if daily_analytics query fails
 		return a.getUserDeviceBreakdownFromRaw(ctx, userID)
 	}
 
 	var devices []model.DeviceStats
 	if err := json.Unmarshal(resp, &devices); err != nil {
-		// Fallback to raw analytics if parsing fails
 		return a.getUserDeviceBreakdownFromRaw(ctx, userID)
 	}
 
 	return devices, nil
 }
 
-// getUserDeviceBreakdownFromRaw is a fallback method using raw analytics
 func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Context, userID string) ([]model.DeviceStats, error) {
-	// Get all analytics records for the user
 	resp, _, err := a.Client.
 		From("analytics").
 		Select("device_type", "exact", false).
@@ -418,7 +431,6 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 		return nil, fmt.Errorf("failed to decode device data: %w", err)
 	}
 
-	// Count device types manually
 	deviceCounts := make(map[string]int64)
 	for _, record := range analytics {
 		deviceType := "unknown"
@@ -428,7 +440,6 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 		deviceCounts[deviceType]++
 	}
 
-	// Convert to slice and sort by count
 	var devices []model.DeviceStats
 	for deviceType, count := range deviceCounts {
 		devices = append(devices, model.DeviceStats{
@@ -437,7 +448,6 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 		})
 	}
 
-	// Sort by clicks (descending)
 	if len(devices) > 1 {
 		for i := 0; i < len(devices)-1; i++ {
 			for j := i + 1; j < len(devices); j++ {
@@ -451,7 +461,6 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 	return devices, nil
 }
 
-// AggregateYesterdayAnalytics calls the database function to aggregate yesterday's data
 func (a *AnalyticsRepositoryImpl) AggregateYesterdayAnalytics(ctx context.Context) error {
 	err := a.Client.Rpc("update_daily_analytics", "", map[string]any{})
 	if err != "" {

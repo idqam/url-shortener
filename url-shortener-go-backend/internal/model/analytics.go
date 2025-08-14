@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// DailyAnalytics represents aggregated daily statistics for a URL
 type DailyAnalytics struct {
 	ID              string    `json:"id" db:"id"`
 	URLID           string    `json:"url_id" db:"url_id"`
@@ -21,7 +20,6 @@ type DailyAnalytics struct {
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// UserAnalyticsSummary provides comprehensive analytics overview for user dashboard
 type UserAnalyticsSummary struct {
 	TotalURLs       int64             `json:"total_urls"`
 	TotalClicks     int64             `json:"total_clicks"`

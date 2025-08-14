@@ -141,7 +141,7 @@ func (s *APIServer) cors() func(http.Handler) http.Handler {
 			origin := r.Header.Get("Origin")
 			log.Printf("[CORS] %s request from origin: %s", r.Method, origin)
 
-			w.Header().Set("Access-Control-Allow-Origin", "https://url-shortener-nu-two-32.vercel.app") //  TODO: Restrict in production
+			w.Header().Set("Access-Control-Allow-Origin", "https://url-shortener-nu-two-32.vercel.app")  
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
