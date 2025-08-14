@@ -40,42 +40,44 @@ export function MiniShortenerForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full mt-6 space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="Paste a URL"
-          required
-          className="flex-1 px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-green-600 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="px-5 py-3 text-sm font-semibold text-white rounded-xl bg-[#A4193D] hover:scale-105 hover:shadow-md transition disabled:opacity-60"
-        >
-          {isPending ? "Shortening..." : "Shorten"}
-        </button>
-      </div>
-
-      {result && (
-        <div className="text-sm bg-white/80 backdrop-blur rounded-xl p-3 text-center">
-          <a
-            href={result}
-            target="_blank"
-            className="text-blue-600 font-medium hover:underline"
+    <div className="mb-10 ">
+      <form onSubmit={handleSubmit} className="w-full mt-6 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="Paste a URL"
+            required
+            className="flex-1 px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-green-600 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            type="submit"
+            disabled={isPending}
+            className="px-5 py-3 text-sm font-semibold text-white rounded-xl bg-[#A4193D] hover:scale-105 hover:shadow-md transition disabled:opacity-60"
           >
-            {result}
-          </a>
+            {isPending ? "Shortening..." : "Shorten"}
+          </button>
         </div>
-      )}
 
-      {error && (
-        <div className="text-sm text-red-600 bg-red-100 rounded-xl p-2 text-center">
-          {error}
-        </div>
-      )}
-    </form>
+        {result && (
+          <div className="text-sm bg-white/80 backdrop-blur rounded-xl p-3 text-center">
+            <a
+              href={result}
+              target="_blank"
+              className="text-blue-600 font-medium hover:underline"
+            >
+              {result}
+            </a>
+          </div>
+        )}
+
+        {error && (
+          <div className="text-sm text-red-600 bg-red-100 rounded-xl p-2 text-center">
+            {error}
+          </div>
+        )}
+      </form>
+    </div>
   );
 }
