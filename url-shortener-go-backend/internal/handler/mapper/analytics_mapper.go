@@ -135,3 +135,78 @@ func ToDailyTrendAnalyticsResponse(trend []model.DailyClickStats, days int) dto.
 		Days:  days,
 	}
 }
+
+
+
+func FromAnalyticsDashboardResponse(resp dto.AnalyticsDashboardResponse) *model.UserAnalyticsSummary {
+	return &model.UserAnalyticsSummary{
+		TotalURLs:       resp.Overview.TotalURLs,
+		TotalClicks:     resp.Overview.TotalClicks,
+		ClicksToday:     resp.Overview.ClicksToday,
+		ClicksYesterday: resp.Overview.ClicksYesterday,
+		AverageClicks:   resp.Overview.AverageClicks,
+		TopURLs:         fromTopURLResponses(resp.TopURLs),
+		TopReferrers:    fromReferrerResponses(resp.TopReferrers),
+		DeviceBreakdown: fromDeviceResponses(resp.DeviceBreakdown),
+		DailyClickTrend: fromDailyTrendResponses(resp.DailyTrend),
+	}
+}
+
+func fromTopURLResponses(urls []dto.TopURLResponse) []model.URLClickStats {
+	if urls == nil {
+		return []model.URLClickStats{}
+	}
+	out := make([]model.URLClickStats, len(urls))
+	for i, u := range urls {
+		out[i] = model.URLClickStats{
+			URLID:       u.URLID,
+			ShortCode:   u.ShortCode,
+			OriginalURL: u.OriginalURL,
+			ClickCount:  u.ClickCount,
+			CreatedAt:   u.CreatedAt,
+		}
+	}
+	return out
+}
+
+func fromReferrerResponses(refs []dto.ReferrerResponse) []model.ReferrerStats {
+	if refs == nil {
+		return []model.ReferrerStats{}
+	}
+	out := make([]model.ReferrerStats, len(refs))
+	for i, r := range refs {
+		out[i] = model.ReferrerStats{
+			Referrer: r.Referrer,
+			Clicks:   r.Clicks,
+		}
+	}
+	return out
+}
+
+func fromDeviceResponses(devs []dto.DeviceResponse) []model.DeviceStats {
+	if devs == nil {
+		return []model.DeviceStats{}
+	}
+	out := make([]model.DeviceStats, len(devs))
+	for i, d := range devs {
+		out[i] = model.DeviceStats{
+			DeviceType: d.DeviceType,
+			Clicks:     d.Clicks,
+		}
+	}
+	return out
+}
+
+func fromDailyTrendResponses(days []dto.DailyTrendResponse) []model.DailyClickStats {
+	if days == nil {
+		return []model.DailyClickStats{}
+	}
+	out := make([]model.DailyClickStats, len(days))
+	for i, d := range days {
+		out[i] = model.DailyClickStats{
+			Date:   d.Date,
+			Clicks: d.Clicks,
+		}
+	}
+	return out
+}

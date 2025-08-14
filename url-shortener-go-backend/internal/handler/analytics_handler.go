@@ -15,6 +15,7 @@ import (
 	"url-shortener-go-backend/internal/handler/mapper"
 	"url-shortener-go-backend/internal/middleware"
 	"url-shortener-go-backend/internal/service"
+
 	"url-shortener-go-backend/internal/utils"
 )
 
@@ -84,7 +85,6 @@ func (h *AnalyticsHandler) HandleGetDashboard() http.HandlerFunc {
 		log.Printf("[%s] Fetching dashboard for user: %s", requestID, truncateID(userID))
 
 		summary, err := h.analyticsService.GetUserDashboard(r.Context(), userID)
-		service.NormalizeSummary(summary)
 		if err != nil {
 			log.Printf("[%s] ERROR: Dashboard fetch failed for user %s: %v",
 				requestID, truncateID(userID), err)
@@ -100,9 +100,11 @@ func (h *AnalyticsHandler) HandleGetDashboard() http.HandlerFunc {
 		}
 
 		response := mapper.ToAnalyticsDashboardResponse(*summary)
+
 		h.respondJSON(w, http.StatusOK, response, requestID)
 	}
 }
+
 
 func (h *AnalyticsHandler) HandleGetTopURLs() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

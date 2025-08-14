@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"url-shortener-go-backend/internal/cache"
+	"url-shortener-go-backend/internal/handler/dto"
+	"url-shortener-go-backend/internal/handler/mapper"
 	"url-shortener-go-backend/internal/model"
 	"url-shortener-go-backend/internal/repository"
 )
@@ -24,13 +26,7 @@ func NewAnalyticsService(analyticsRepo repository.AnalyticsRepository, cache cac
 	}
 }
 
-func isValidSummary(summary *model.UserAnalyticsSummary) bool {
-	return summary != nil &&
-		summary.DailyClickTrend != nil &&
-		summary.DeviceBreakdown != nil &&
-		summary.TopReferrers != nil &&
-		summary.TopURLs != nil
-}
+
 func NormalizeSummary(summary *model.UserAnalyticsSummary) {
 	if summary.TopURLs == nil {
 		summary.TopURLs = []model.URLClickStats{}
@@ -50,14 +46,12 @@ func (s *AnalyticsServiceImpl) GetUserDashboard(ctx context.Context, userID stri
     cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
 
     if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
-        var summary model.UserAnalyticsSummary
-        if err := json.Unmarshal([]byte(val), &summary); err == nil {
+        var cached dto.AnalyticsDashboardResponse
+        if err := json.Unmarshal([]byte(val), &cached); err == nil {
             log.Printf("[GetUserDashboard] Cache HIT for user: %s", userID)
-            NormalizeSummary(&summary) 
-			 if jsonVal, err := json.Marshal(&summary); err == nil {
-            _ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
-        }
-            return &summary, nil
+            summary := mapper.FromAnalyticsDashboardResponse(cached)
+            NormalizeSummary(summary)
+            return summary, nil
         }
     }
 
@@ -72,9 +66,10 @@ func (s *AnalyticsServiceImpl) GetUserDashboard(ctx context.Context, userID stri
         return nil, fmt.Errorf("failed to get user dashboard: %w", err)
     }
 
-    if jsonVal, err := json.Marshal(summary); err == nil {
+    mapped := mapper.ToAnalyticsDashboardResponse(*summary)
+    if jsonVal, err := json.Marshal(mapped); err == nil {
         _ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
-        log.Printf("[GetUserDashboard] Cached analytics for user: %s", userID)
+        log.Printf("[GetUserDashboard] Cached mapped DTO for user: %s", userID)
     }
 
     return summary, nil
