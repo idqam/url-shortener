@@ -45,6 +45,13 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard token={accessToken as string} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard2"
+            element={
+              <ProtectedRoute>
                 <DashboardV2 token={accessToken as string} />
               </ProtectedRoute>
             }
