@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { supabase } from "./lib/supabaseClient";
 import { useAuthStore } from "./store/AuthStore";
 import Dashboard from "./pages/Dashboard";
-import DashboardV2 from "./pages/DashboardV2";
+// import DashboardV2 from "./pages/DashboardV2";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Home } from "./pages/Home";
 import LogInPage from "./pages/LogInPage";
@@ -73,14 +73,14 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
+          {/* <Route
             path="/dashboard2"
             element={
               <ProtectedRoute>
                 <DashboardV2 token={accessToken as string} />
               </ProtectedRoute>
             }
-          />
+          /> */}
         </Routes>
       </Router>
     </QueryClientProvider>
