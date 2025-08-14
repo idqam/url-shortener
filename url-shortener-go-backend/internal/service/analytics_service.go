@@ -26,7 +26,6 @@ func NewAnalyticsService(analyticsRepo repository.AnalyticsRepository, cache cac
 	}
 }
 
-
 func NormalizeSummary(summary *model.UserAnalyticsSummary) {
 	if summary.TopURLs == nil {
 		summary.TopURLs = []model.URLClickStats{}
@@ -43,38 +42,37 @@ func NormalizeSummary(summary *model.UserAnalyticsSummary) {
 }
 
 func (s *AnalyticsServiceImpl) GetUserDashboard(ctx context.Context, userID string) (*model.UserAnalyticsSummary, error) {
-    cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
+	cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
 
-    if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
-        var cached dto.AnalyticsDashboardResponse
-        if err := json.Unmarshal([]byte(val), &cached); err == nil {
-            log.Printf("[GetUserDashboard] Cache HIT for user: %s", userID)
-            summary := mapper.FromAnalyticsDashboardResponse(cached)
-            NormalizeSummary(summary)
-            return summary, nil
-        }
-    }
+	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
+		var cached dto.AnalyticsDashboardResponse
+		if err := json.Unmarshal([]byte(val), &cached); err == nil {
+			log.Printf("[GetUserDashboard] Cache HIT for user: %s", userID)
+			summary := mapper.FromAnalyticsDashboardResponse(cached)
+			NormalizeSummary(summary)
+			return summary, nil
+		}
+	}
 
-    log.Printf("[GetUserDashboard] Cache MISS for user: %s", userID)
-    summary, err := s.analyticsRepo.GetUserAnalyticsSummary(ctx, userID)
-    if summary != nil {
-        NormalizeSummary(summary)
-    }
+	log.Printf("[GetUserDashboard] Cache MISS for user: %s", userID)
+	summary, err := s.analyticsRepo.GetUserAnalyticsSummary(ctx, userID)
+	if summary != nil {
+		NormalizeSummary(summary)
+	}
 
-    if err != nil {
-        log.Printf("[GetUserDashboard] Failed to get analytics summary for user %s: %v", userID, err)
-        return nil, fmt.Errorf("failed to get user dashboard: %w", err)
-    }
+	if err != nil {
+		log.Printf("[GetUserDashboard] Failed to get analytics summary for user %s: %v", userID, err)
+		return nil, fmt.Errorf("failed to get user dashboard: %w", err)
+	}
 
-    mapped := mapper.ToAnalyticsDashboardResponse(*summary)
-    if jsonVal, err := json.Marshal(mapped); err == nil {
-        _ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
-        log.Printf("[GetUserDashboard] Cached mapped DTO for user: %s", userID)
-    }
+	mapped := mapper.ToAnalyticsDashboardResponse(*summary)
+	if jsonVal, err := json.Marshal(mapped); err == nil {
+		_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
+		log.Printf("[GetUserDashboard] Cached mapped DTO for user: %s", userID)
+	}
 
-    return summary, nil
+	return summary, nil
 }
-
 
 func (s *AnalyticsServiceImpl) GetUserTopURLs(ctx context.Context, userID string, limit int) ([]model.URLClickStats, error) {
 	cacheKey := fmt.Sprintf("user_top_urls:%s:%d", userID, limit)
@@ -112,7 +110,11 @@ func (s *AnalyticsServiceImpl) GetUserDailyTrend(ctx context.Context, userID str
 	trend, err := s.analyticsRepo.GetUserDailyClicks(ctx, userID, days)
 	if err != nil {
 		log.Printf("[GetUserDailyTrend] Failed for user %s: %v", userID, err)
-		return nil, fmt.Errorf("failed to get daily trend: %w", err)
+		return []model.DailyClickStats{}, nil
+	}
+
+	if trend == nil {
+		trend = []model.DailyClickStats{}
 	}
 
 	if jsonVal, err := json.Marshal(trend); err == nil {

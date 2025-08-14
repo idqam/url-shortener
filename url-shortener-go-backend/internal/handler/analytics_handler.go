@@ -105,7 +105,6 @@ func (h *AnalyticsHandler) HandleGetDashboard() http.HandlerFunc {
 	}
 }
 
-
 func (h *AnalyticsHandler) HandleGetTopURLs() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := h.requestIDGen()

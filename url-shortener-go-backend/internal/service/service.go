@@ -75,8 +75,6 @@ func (s *URLServiceImpl) CreateShortURL(ctx context.Context, originalURL string,
 		break
 	}
 
-	
-
 	if jsonVal, err := json.Marshal(url); err == nil {
 		_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
 	}
@@ -85,7 +83,7 @@ func (s *URLServiceImpl) CreateShortURL(ctx context.Context, originalURL string,
 }
 
 func (s *URLServiceImpl) GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error) {
-cacheKey := "short_url:" + shortcode
+	cacheKey := "short_url:" + shortcode
 
 	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
 		var url model.URL

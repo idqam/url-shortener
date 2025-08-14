@@ -59,11 +59,11 @@ func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, u
 	log.Printf("[GetUserAnalyticsSummary] Creating summary with CALCULATED stats for user: %s", userID)
 
 	summary := &model.UserAnalyticsSummary{
-    TopURLs:          []model.URLClickStats{},
-    TopReferrers:     []model.ReferrerStats{},
-    DeviceBreakdown:  []model.DeviceStats{},
-    DailyClickTrend:  []model.DailyClickStats{},
-}
+		TopURLs:         []model.URLClickStats{},
+		TopReferrers:    []model.ReferrerStats{},
+		DeviceBreakdown: []model.DeviceStats{},
+		DailyClickTrend: []model.DailyClickStats{},
+	}
 
 	topURLs, err := a.GetUserTopURLs(ctx, userID, 100)
 	if err != nil {
@@ -138,13 +138,13 @@ func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, u
 	}
 
 	dailyTrend, err = a.GetUserDailyClicks(ctx, userID, 7)
-if err != nil {
-    log.Printf("[GetUserAnalyticsSummary] Failed to get daily trend: %v", err)
-    summary.DailyClickTrend = []model.DailyClickStats{}
-} else {
-    summary.DailyClickTrend = dailyTrend
-    log.Printf("[GetUserAnalyticsSummary] Got %d days of trend data", len(dailyTrend))
-}
+	if err != nil {
+		log.Printf("[GetUserAnalyticsSummary] Failed to get daily trend: %v", err)
+		summary.DailyClickTrend = []model.DailyClickStats{}
+	} else {
+		summary.DailyClickTrend = dailyTrend
+		log.Printf("[GetUserAnalyticsSummary] Got %d days of trend data", len(dailyTrend))
+	}
 
 	log.Printf("[GetUserAnalyticsSummary] ✅ Successfully created CALCULATED summary for user %s", userID)
 	return summary, nil
@@ -231,98 +231,44 @@ func (a *AnalyticsRepositoryImpl) GetUserTopURLs(ctx context.Context, userID str
 }
 
 func fillMissingDays(data []model.DailyClickStats, days int) []model.DailyClickStats {
-    today := time.Now()
+	today := time.Now()
 
-    clicksByDate := make(map[string]int64)
-    for _, d := range data {
-        clicksByDate[d.Date] = d.Clicks
-    }
+	clicksByDate := make(map[string]int64)
+	for _, d := range data {
+		clicksByDate[d.Date] = d.Clicks
+	}
 
-    result := make([]model.DailyClickStats, days)
-    for i := 0; i < days; i++ {
-        date := today.AddDate(0, 0, -(days-1-i)).Format("2006-01-02")
-        result[i] = model.DailyClickStats{
-            Date:   date,
-            Clicks: clicksByDate[date], 
-        }
-    }
-    return result
+	result := make([]model.DailyClickStats, days)
+	for i := 0; i < days; i++ {
+		date := today.AddDate(0, 0, -(days - 1 - i)).Format("2006-01-02")
+		result[i] = model.DailyClickStats{
+			Date:   date,
+			Clicks: clicksByDate[date],
+		}
+	}
+	return result
 }
 
 func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID string, days int) ([]model.DailyClickStats, error) {
-    startDate := time.Now().AddDate(0, 0, -days+1).Format("2006-01-02")
+	var raw string
 
-    resp, _, err := a.Client.
-        From("daily_analytics").
-        Select("date, SUM(click_count) as clicks", "exact", false).
-        Eq("user_id", userID).
-        Gte("date", startDate).
-        Order("date", &postgrest.OrderOpts{Ascending: true}).
-        Execute()
-
-    if err != nil {
-        return a.getUserDailyClicksFromRaw(ctx, userID, days)
-    }
-
-    var dailyClicks []model.DailyClickStats
-    if err := json.Unmarshal(resp, &dailyClicks); err != nil {
-        return a.getUserDailyClicksFromRaw(ctx, userID, days)
-    }
-
-    dailyClicks = fillMissingDays(dailyClicks, days)
-
-    return dailyClicks, nil
-}
-
-func (a *AnalyticsRepositoryImpl) getUserDailyClicksFromRaw(ctx context.Context, userID string, days int) ([]model.DailyClickStats, error) {
-	startDate := time.Now().AddDate(0, 0, -days+1).Format("2006-01-02")
-
-	resp, _, err := a.Client.
-		From("analytics").
-		Select("clicked_at", "exact", false).
-		Eq("user_id", userID).
-		Gte("clicked_at", startDate).
-		Execute()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch daily clicks data: %w", err)
+	err := a.Client.Rpc("get_user_daily_clicks", "", map[string]any{
+		"uid":  userID,
+		"days": days,
+	})
+	if err != "" {
+		log.Printf("[GetUserDailyClicks] RPC failed for user_id=%s: %s", userID, err)
+		return nil, fmt.Errorf("failed to get daily clicks: %s", err)
 	}
 
-	var analytics []struct {
-		ClickedAt string `json:"clicked_at"`
-	}
-	if err := json.Unmarshal(resp, &analytics); err != nil {
-		return nil, fmt.Errorf("failed to decode daily clicks data: %w", err)
+	var stats []model.DailyClickStats
+	if err := json.Unmarshal([]byte(raw), &stats); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal daily clicks: %w", err)
 	}
 
-	dateCounts := make(map[string]int64)
-	for _, record := range analytics {
+	stats = fillMissingDays(stats, days)
 
-		if clickTime, err := time.Parse(time.RFC3339, record.ClickedAt); err == nil {
-			date := clickTime.Format("2006-01-02")
-			dateCounts[date]++
-		}
-	}
-
-	var dailyClicks []model.DailyClickStats
-	for date, count := range dateCounts {
-		dailyClicks = append(dailyClicks, model.DailyClickStats{
-			Date:   date,
-			Clicks: count,
-		})
-	}
-
-	if len(dailyClicks) > 1 {
-		for i := 0; i < len(dailyClicks)-1; i++ {
-			for j := i + 1; j < len(dailyClicks); j++ {
-				if dailyClicks[i].Date > dailyClicks[j].Date {
-					dailyClicks[i], dailyClicks[j] = dailyClicks[j], dailyClicks[i]
-				}
-			}
-		}
-	}
-
-	return dailyClicks, nil
+	return stats, nil
 }
 
 func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userID string, limit int) ([]model.ReferrerStats, error) {

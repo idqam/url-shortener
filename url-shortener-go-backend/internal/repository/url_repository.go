@@ -37,7 +37,7 @@ func (u *URLRepositoryImpl) GetURLByShortCode(ctx context.Context, shortcode str
 	}
 
 	url.PopulateShortURL()
-	
+
 	return &url, nil
 }
 
