@@ -40,23 +40,23 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/signup" element={<SignUpPage />} />
           <Route path="/login" element={<LogInPage />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard token={accessToken as string} />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard2"
-            element={
-              <ProtectedRoute>
-                <DashboardV2 token={accessToken as string} />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard token={accessToken as string} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard2"
+              element={
+                <ProtectedRoute>
+                  <DashboardV2 token={accessToken as string} />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
       </Router>
     </QueryClientProvider>
   );
