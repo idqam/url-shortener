@@ -6,8 +6,6 @@ import { useAuthStore } from "../store/AuthStore";
 import { supabase } from "../lib/supabaseClient";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
-const USE_DUMMY_USER = import.meta.env.VITE_USE_DUMMY_USER === "true";
-
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,8 +17,6 @@ const LoginPage = () => {
 
   useEffect(() => {
     const maybeAutoLogin = async () => {
-      if (!USE_DUMMY_USER) return;
-
       try {
         const {
           data: { session },
@@ -223,14 +219,6 @@ const LoginPage = () => {
                 Create New Account
               </Link>
             </div>
-
-            {USE_DUMMY_USER && (
-              <div className="text-center">
-                <p className="text-xs text-gray-500 italic">
-                  Dev Mode: Auto-login enabled
-                </p>
-              </div>
-            )}
           </form>
         </div>
 
