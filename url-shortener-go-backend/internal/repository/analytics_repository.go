@@ -248,21 +248,18 @@ func fillMissingDays(data []model.DailyClickStats, days int) []model.DailyClickS
 	}
 	return result
 }
-
 func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID string, days int) ([]model.DailyClickStats, error) {
-	var raw string
-
-	err := a.Client.Rpc("get_user_daily_clicks", "", map[string]any{
+	rawJSON := a.Client.Rpc("get_user_daily_clicks", "", map[string]any{
 		"p_days":    days,
 		"p_user_id": userID,
 	})
-	if err != "" {
-		log.Printf("[GetUserDailyClicks] RPC failed for user_id=%s: %s", userID, err)
-		return nil, fmt.Errorf("failed to get daily clicks: %s", err)
+
+	if rawJSON == "" {
+		return []model.DailyClickStats{}, nil
 	}
 
 	var stats []model.DailyClickStats
-	if err := json.Unmarshal([]byte(raw), &stats); err != nil {
+	if err := json.Unmarshal([]byte(rawJSON), &stats); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal daily clicks: %w", err)
 	}
 
@@ -270,6 +267,7 @@ func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID
 
 	return stats, nil
 }
+
 
 func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userID string, limit int) ([]model.ReferrerStats, error) {
 
