@@ -28,7 +28,7 @@ const analyticsColors = {
   surfaceLight: "rgba(255, 255, 255, 0.6)",
 };
 
-export function MiniShortenerForm() {
+export function MiniShortenerFormV2() {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

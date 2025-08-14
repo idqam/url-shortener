@@ -32,8 +32,8 @@ import {
 } from "lucide-react";
 import { useAnalyticsDashboard } from "../api/analytics";
 import { StatCard } from "../components/StatsCard";
-import { MiniShortenerForm } from "../components/MiniShortenForm";
 import SignOutButton from "../components/SignOutButton";
+import { MiniShortenerFormV2 } from "../components/MiniShortenFormV2";
 
 // Enhanced colors with additional variations for better visual hierarchy
 const analyticsColors = {
@@ -327,7 +327,7 @@ export const AnalyticsDashboardV2: React.FC<AnalyticsDashboardProps> = ({
           }}
         >
           <div className="max-w-xl mx-auto pt-4">
-            <MiniShortenerForm />
+            <MiniShortenerFormV2 />
           </div>
         </div>
 
