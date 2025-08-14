@@ -31,7 +31,7 @@ func isValidSummary(summary *model.UserAnalyticsSummary) bool {
 		summary.TopReferrers != nil &&
 		summary.TopURLs != nil
 }
-func normalizeSummary(summary *model.UserAnalyticsSummary) {
+func NormalizeSummary(summary *model.UserAnalyticsSummary) {
 	if summary.TopURLs == nil {
 		summary.TopURLs = []model.URLClickStats{}
 	}
@@ -47,40 +47,39 @@ func normalizeSummary(summary *model.UserAnalyticsSummary) {
 }
 
 func (s *AnalyticsServiceImpl) GetUserDashboard(ctx context.Context, userID string) (*model.UserAnalyticsSummary, error) {
-	cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
-	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
-		var summary model.UserAnalyticsSummary
-		if err := json.Unmarshal([]byte(val), &summary); err == nil {
-			log.Printf("[GetUserDashboard] Cache HIT for user: %s", userID)
-			return &summary, nil
-		}
-	}
+    cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
 
-	log.Printf("[GetUserDashboard] Cache MISS for user: %s", userID)
-	summary, err := s.analyticsRepo.GetUserAnalyticsSummary(ctx, userID)
-	if summary != nil && isValidSummary(summary) {
-		if jsonVal, err := json.Marshal(summary); err == nil {
-			_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
-			log.Printf("[GetUserDashboard] Cached analytics for user: %s", userID)
-		}
+    if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
+        var summary model.UserAnalyticsSummary
+        if err := json.Unmarshal([]byte(val), &summary); err == nil {
+            log.Printf("[GetUserDashboard] Cache HIT for user: %s", userID)
+            NormalizeSummary(&summary) 
+			 if jsonVal, err := json.Marshal(&summary); err == nil {
+            _ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
+        }
+            return &summary, nil
+        }
+    }
 
-		if summary != nil {
-			normalizeSummary(summary)
-		}
+    log.Printf("[GetUserDashboard] Cache MISS for user: %s", userID)
+    summary, err := s.analyticsRepo.GetUserAnalyticsSummary(ctx, userID)
+    if summary != nil {
+        NormalizeSummary(summary)
+    }
 
-	}
-	if err != nil {
-		log.Printf("[GetUserDashboard] Failed to get analytics summary for user %s: %v", userID, err)
-		return nil, fmt.Errorf("failed to get user dashboard: %w", err)
-	}
+    if err != nil {
+        log.Printf("[GetUserDashboard] Failed to get analytics summary for user %s: %v", userID, err)
+        return nil, fmt.Errorf("failed to get user dashboard: %w", err)
+    }
 
-	if jsonVal, err := json.Marshal(summary); err == nil {
-		_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
-		log.Printf("[GetUserDashboard] Cached analytics for user: %s", userID)
-	}
+    if jsonVal, err := json.Marshal(summary); err == nil {
+        _ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
+        log.Printf("[GetUserDashboard] Cached analytics for user: %s", userID)
+    }
 
-	return summary, nil
+    return summary, nil
 }
+
 
 func (s *AnalyticsServiceImpl) GetUserTopURLs(ctx context.Context, userID string, limit int) ([]model.URLClickStats, error) {
 	cacheKey := fmt.Sprintf("user_top_urls:%s:%d", userID, limit)

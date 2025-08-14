@@ -5,15 +5,34 @@ import (
 	"url-shortener-go-backend/internal/model"
 )
 
+
 func ToAnalyticsDashboardResponse(summary model.UserAnalyticsSummary) dto.AnalyticsDashboardResponse {
-	return dto.AnalyticsDashboardResponse{
-		Overview:        ToAnalyticsOverview(summary),
-		TopURLs:         ToTopURLResponses(summary.TopURLs),
-		TopReferrers:    ToReferrerResponses(summary.TopReferrers),
-		DeviceBreakdown: ToDeviceResponses(summary.DeviceBreakdown),
-		DailyTrend:      ToDailyTrendResponses(summary.DailyClickTrend),
-	}
+    return dto.AnalyticsDashboardResponse{
+        Overview:        ToAnalyticsOverview(summary),
+        TopURLs:         ToTopURLResponses(orEmptyURLs(summary.TopURLs)),
+        TopReferrers:    ToReferrerResponses(orEmptyReferrers(summary.TopReferrers)),
+        DeviceBreakdown: ToDeviceResponses(orEmptyDevices(summary.DeviceBreakdown)),
+        DailyTrend:      ToDailyTrendResponses(orEmptyDailyTrend(summary.DailyClickTrend)),
+    }
 }
+
+func orEmptyURLs(v []model.URLClickStats) []model.URLClickStats {
+    if v == nil { return []model.URLClickStats{} }
+    return v
+}
+func orEmptyReferrers(v []model.ReferrerStats) []model.ReferrerStats {
+    if v == nil { return []model.ReferrerStats{} }
+    return v
+}
+func orEmptyDevices(v []model.DeviceStats) []model.DeviceStats {
+    if v == nil { return []model.DeviceStats{} }
+    return v
+}
+func orEmptyDailyTrend(v []model.DailyClickStats) []model.DailyClickStats {
+    if v == nil { return []model.DailyClickStats{} }
+    return v
+}
+
 
 func ToAnalyticsOverview(summary model.UserAnalyticsSummary) dto.AnalyticsOverview {
 	trendDirection := "same"
