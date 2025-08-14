@@ -108,9 +108,10 @@ func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, u
 		summary.ClicksYesterday = 0
 
 		for _, day := range dailyTrend {
-			if day.Date == today {
+			switch day.Date {
+case today:
 				summary.ClicksToday = day.Clicks
-			} else if day.Date == yesterday {
+			case yesterday:
 				summary.ClicksYesterday = day.Clicks
 			}
 		}
@@ -231,8 +232,7 @@ func (a *AnalyticsRepositoryImpl) GetUserTopURLs(ctx context.Context, userID str
 }
 
 func fillMissingDays(data []model.DailyClickStats, days int) []model.DailyClickStats {
-	today := time.Now()
-
+today := time.Now().UTC()
 	clicksByDate := make(map[string]int64)
 	for _, d := range data {
 		clicksByDate[d.Date] = d.Clicks
