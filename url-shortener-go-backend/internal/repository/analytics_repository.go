@@ -253,8 +253,8 @@ func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID
 	var raw string
 
 	err := a.Client.Rpc("get_user_daily_clicks", "", map[string]any{
-		"uid":  userID,
-		"days": days,
+		"p_days":    days,
+		"p_user_id": userID,
 	})
 	if err != "" {
 		log.Printf("[GetUserDailyClicks] RPC failed for user_id=%s: %s", userID, err)
