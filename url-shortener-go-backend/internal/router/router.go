@@ -102,9 +102,7 @@ func (s *APIServer) registerAnalyticsRoutes() {
 	s.router.Handle("/api/analytics/dashboard", s.authMiddleware(
 		http.HandlerFunc(s.analyticsHandler.HandleGetDashboard()),
 	))
-	s.router.Handle("/api/analytics/dashboard2", s.authMiddleware(
-		http.HandlerFunc(s.analyticsHandler.HandleGetDashboard()),
-	))
+
 
 	//query param
 	s.router.Handle("/api/analytics/urls", s.authMiddleware(
