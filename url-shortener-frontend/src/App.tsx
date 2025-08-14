@@ -8,6 +8,7 @@ import { useAuthStore } from "./store/AuthStore";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Dashboard from "./pages/Dashboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import DashboardV2 from "./pages/DashboardV2";
 
 function App() {
   const login = useAuthStore((state) => state.login);
@@ -44,6 +45,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard token={accessToken as string} />
+                <DashboardV2 token={accessToken as string} />
               </ProtectedRoute>
             }
           />
