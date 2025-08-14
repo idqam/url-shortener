@@ -143,7 +143,7 @@ func (s *APIServer) cors() func(http.Handler) http.Handler {
 
 			w.Header().Set("Access-Control-Allow-Origin", "https://url-shortener-nu-two-32.vercel.app")  
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 			if r.Method == http.MethodOptions {
