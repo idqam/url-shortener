@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { supabase } from "./lib/supabaseClient";
 import { useAuthStore } from "./store/AuthStore";
 import Dashboard from "./pages/Dashboard";
-// import DashboardV2 from "./pages/DashboardV2";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Home } from "./pages/Home";
 import LogInPage from "./pages/LogInPage";
@@ -26,6 +25,8 @@ function App() {
 
       if (session?.user?.id && session?.access_token) {
         login(session.user.id, session.access_token);
+      } else {
+        logout();
       }
 
       setSessionChecked(true);
