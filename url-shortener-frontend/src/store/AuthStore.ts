@@ -5,48 +5,140 @@ type AuthState = {
   userId: string | null;
   accessToken: string | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  lastUpdate: number; 
   login: (userId: string, accessToken: string) => void;
   logout: () => void;
   setUserIdFromSession: () => Promise<void>;
   getAccessToken: () => string | null;
+  setLoading: (loading: boolean) => void;
 };
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
   userId: null,
   accessToken: null,
   isAuthenticated: false,
+  isLoading: false,
+  lastUpdate: 0,
 
-  login: (userId, accessToken) =>
-    set((state) => {
-      if (
-        state.userId === userId &&
-        state.accessToken === accessToken &&
-        state.isAuthenticated
-      ) {
-        return state;
-      }
-      return { userId, accessToken, isAuthenticated: true };
-    }),
+  setLoading: (loading: boolean) => {
+    console.log("Setting loading state:", loading);
+    set({ isLoading: loading });
+  },
+
+  login: (userId, accessToken) => {
+    const currentState = get();
+
+    // Prevent unnecessary updates if the state hasn't actually changed
+    if (
+      currentState.userId === userId &&
+      currentState.accessToken === accessToken &&
+      currentState.isAuthenticated === true
+    ) {
+      console.log("Login called but state is already correct, skipping update");
+      return;
+    }
+
+    // Add rate limiting to prevent rapid-fire updates
+    const now = Date.now();
+    if (now - currentState.lastUpdate < 100) {
+      // 100ms cooldown
+      console.log("Login called too soon after last update, debouncing");
+      return;
+    }
+
+    console.log("Logging in user:", userId);
+    set({
+      userId,
+      accessToken,
+      isAuthenticated: true,
+      isLoading: false,
+      lastUpdate: now,
+    });
+  },
 
   logout: () => {
-    supabase.auth.signOut();
-    set({ userId: null, accessToken: null, isAuthenticated: false });
+    const currentState = get();
+
+    // Prevent unnecessary logout calls
+    if (
+      !currentState.isAuthenticated &&
+      !currentState.userId &&
+      !currentState.accessToken
+    ) {
+      console.log("Logout called but user is already logged out, skipping");
+      return;
+    }
+
+    console.log("Logging out user");
+
+    // Don't call supabase.auth.signOut() here to prevent infinite loops
+    // The auth listener will handle the Supabase side
+    set({
+      userId: null,
+      accessToken: null,
+      isAuthenticated: false,
+      isLoading: false,
+      lastUpdate: Date.now(),
+    });
   },
 
   setUserIdFromSession: async () => {
-    const { data } = await supabase.auth.getSession();
+    const currentState = get();
 
-    const session = data.session;
-    if (session?.user?.id && session?.access_token) {
+    // Prevent multiple simultaneous calls
+    if (currentState.isLoading) {
+      console.log("Session check already in progress, skipping");
+      return;
+    }
+
+    set({ isLoading: true });
+
+    try {
+      console.log("Checking session...");
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error("Session check error:", error);
+        set({ isLoading: false });
+        return;
+      }
+
+      const session = data.session;
+      if (session?.user?.id && session?.access_token) {
+        console.log("Session found, updating state");
+        set({
+          userId: session.user.id,
+          accessToken: session.access_token,
+          isAuthenticated: true,
+          isLoading: false,
+          lastUpdate: Date.now(),
+        });
+      } else {
+        console.log("No session found");
+        set({
+          userId: null,
+          accessToken: null,
+          isAuthenticated: false,
+          isLoading: false,
+          lastUpdate: Date.now(),
+        });
+      }
+    } catch (error) {
+      console.error("Unexpected error during session check:", error);
       set({
-        userId: session.user.id,
-        accessToken: session.access_token,
-        isAuthenticated: true,
+        isLoading: false,
+        lastUpdate: Date.now(),
       });
-    } else {
-      set({ userId: null, accessToken: null, isAuthenticated: false });
     }
   },
 
-  getAccessToken: () => get().accessToken,
+  getAccessToken: () => {
+    const state = get();
+    console.log(
+      "Getting access token:",
+      state.accessToken ? "present" : "missing"
+    );
+    return state.accessToken;
+  },
 }));
