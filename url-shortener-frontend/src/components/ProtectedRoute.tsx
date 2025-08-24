@@ -6,35 +6,27 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, accessToken } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const accessToken = useAuthStore((s) => s.accessToken);
 
-  if (!isAuthenticated) {
-    console.log("isAuthenticated:", isAuthenticated);
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!accessToken) {
+  if (isAuthenticated && !accessToken) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="flex space-x-2 justify-center m-0 items-center w-fit h-fit ">
-            <p>
-              Loading
-              <span className="h-2 w-2 bg-amber-300 rounded-full animate-pulse">
-                .
-              </span>
-              <span className="h-2 w-2 bg-amber-300 rounded-full animate-pulse">
-                .
-              </span>
-              <span className="h-2 w-2 bg-amber-300 rounded-full animate-pulse">
-                .
-              </span>
-            </p>
-          </div>
+          <p className="flex space-x-1 justify-center">
+            <span>Loading</span>
+            <span className="animate-pulse">.</span>
+            <span className="animate-pulse delay-150">.</span>
+            <span className="animate-pulse delay-300">.</span>
+          </p>
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

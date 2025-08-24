@@ -10,33 +10,30 @@ import LogInPage from "./pages/LogInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 
 function App() {
-  const login = useAuthStore((state) => state.login);
-  const logout = useAuthStore((state) => state.logout);
   const accessToken = useAuthStore((state) => state.accessToken);
   const queryClient = new QueryClient();
 
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (session?.user?.id && session?.access_token) {
-          login(session.user.id, session.access_token);
+        if (session) {
+          useAuthStore.getState().login(session.user.id, session.access_token!);
         } else {
-          logout();
+          useAuthStore.getState().logout();
         }
       }
     );
 
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (error) {
-        console.error("Session error:", error);
-        logout();
-      } else if (data.session?.user?.id && data.session?.access_token) {
-        login(data.session.user.id, data.session.access_token);
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        useAuthStore
+          .getState()
+          .login(data.session.user.id, data.session.access_token!);
       }
     });
 
     return () => listener.subscription.unsubscribe();
-  }, [login, logout]);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

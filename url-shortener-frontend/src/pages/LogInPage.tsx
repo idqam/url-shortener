@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../api/login";
 import { useAuthStore } from "../store/AuthStore";
-import { supabase } from "../lib/supabaseClient";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 const LoginPage = () => {
@@ -14,24 +13,6 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuthStore();
-
-  useEffect(() => {
-    const maybeAutoLogin = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session?.user?.id && session?.access_token) {
-          login(session.user.id, session.access_token);
-          navigate("/dashboard");
-        }
-      } catch (error) {
-        console.error("Auto-login failed:", error);
-      }
-    };
-
-    maybeAutoLogin();
-  }, [navigate, login]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +42,6 @@ const LoginPage = () => {
     >
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="flex justify-center items-center mb-6"></div>
           <h2
             className="text-4xl font-bold mb-2"
             style={{
@@ -97,9 +77,6 @@ const LoginPage = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200"
-                style={{
-                  borderBlock: "#A4193D",
-                }}
                 onFocus={(e) => (e.target.style.borderColor = "#A4193D")}
                 onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")}
                 placeholder="Enter your email"

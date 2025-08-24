@@ -34,10 +34,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   setUserIdFromSession: async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const { data } = await supabase.auth.getSession();
 
+    const session = data.session;
     if (session?.user?.id && session?.access_token) {
       set({
         userId: session.user.id,

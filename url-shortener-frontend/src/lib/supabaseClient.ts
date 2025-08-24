@@ -16,25 +16,3 @@ export const supabase = createClient(
     },
   }
 );
-
-const SESSION_TIMEOUT = 2 * 60 * 60 * 1000;
-
-export const setupSessionTimeout = () => {
-  let timeoutId: number;
-
-  const resetTimeout = () => {
-    clearTimeout(timeoutId);
-    timeoutId = window.setTimeout(() => {
-      supabase.auth.signOut();
-      alert("Session expired. Please sign in again.");
-    }, SESSION_TIMEOUT);
-  };
-
-  ["mousedown", "mousemove", "keypress", "scroll", "touchstart"].forEach(
-    (event) => {
-      document.addEventListener(event, resetTimeout, { passive: true });
-    }
-  );
-
-  resetTimeout();
-};
