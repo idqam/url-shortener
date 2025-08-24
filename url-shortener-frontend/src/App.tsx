@@ -9,9 +9,18 @@ import { Home } from "./pages/Home";
 import LogInPage from "./pages/LogInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 function App() {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const queryClient = new QueryClient();
 
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
@@ -24,13 +33,20 @@ function App() {
       }
     );
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        useAuthStore
-          .getState()
-          .login(data.session.user.id, data.session.access_token!);
+    const initializeSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          useAuthStore
+            .getState()
+            .login(data.session.user.id, data.session.access_token!);
+        }
+      } catch (error) {
+        console.error("Error initializing session:", error);
       }
-    });
+    };
+
+    initializeSession();
 
     return () => listener.subscription.unsubscribe();
   }, []);
