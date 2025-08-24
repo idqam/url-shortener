@@ -29,7 +29,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   login: (userId, accessToken) => {
     const currentState = get();
 
-    // Prevent unnecessary updates if the state hasn't actually changed
     if (
       currentState.userId === userId &&
       currentState.accessToken === accessToken &&
@@ -39,10 +38,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       return;
     }
 
-    // Add rate limiting to prevent rapid-fire updates
+    
     const now = Date.now();
     if (now - currentState.lastUpdate < 100) {
-      // 100ms cooldown
+      
       console.log("Login called too soon after last update, debouncing");
       return;
     }
@@ -60,7 +59,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   logout: () => {
     const currentState = get();
 
-    // Prevent unnecessary logout calls
+    
     if (
       !currentState.isAuthenticated &&
       !currentState.userId &&
@@ -72,8 +71,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     console.log("Logging out user");
 
-    // Don't call supabase.auth.signOut() here to prevent infinite loops
-    // The auth listener will handle the Supabase side
+   
     set({
       userId: null,
       accessToken: null,
@@ -86,7 +84,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   setUserIdFromSession: async () => {
     const currentState = get();
 
-    // Prevent multiple simultaneous calls
     if (currentState.isLoading) {
       console.log("Session check already in progress, skipping");
       return;
