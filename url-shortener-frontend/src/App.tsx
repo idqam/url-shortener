@@ -18,32 +18,20 @@ function App() {
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
-    const restoreSession = async () => {
-      const timeout = setTimeout(() => {
-        console.log("Session check timeout, proceeding anyway...");
-        setSessionChecked(true);
-      }, 5000);
-
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        clearTimeout(timeout);
-
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error("Session error:", error);
+        logout();
+      } else {
+        const session = data.session;
         if (session?.user?.id && session?.access_token) {
           login(session.user.id, session.access_token);
         } else {
           logout();
         }
-      } catch (error) {
-        console.error("Session error:", error);
-        logout();
-      } finally {
-        setSessionChecked(true);
       }
-    };
-
-    restoreSession();
+      setSessionChecked(true);
+    });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
@@ -58,25 +46,22 @@ function App() {
     return () => listener.subscription.unsubscribe();
   }, [login, logout]);
 
-  if (!sessionChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>Loading session...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
+        {!sessionChecked && (
+          <div className="fixed inset-0 flex items-center justify-center bg-white/70 z-50">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Checking session...</p>
+            </div>
+          </div>
+        )}
+
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<LogInPage />} />
           <Route path="/signup" element={<SignUpPage />} />
-
           <Route
             path="/dashboard"
             element={
@@ -85,14 +70,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* <Route
-            path="/dashboard2"
-            element={
-              <ProtectedRoute>
-                <DashboardV2 token={accessToken as string} />
-              </ProtectedRoute>
-            }
-          /> */}
         </Routes>
       </Router>
     </QueryClientProvider>
