@@ -3,36 +3,14 @@ import { ShortenerForm } from "../components/ShortenerForm";
 
 export const Home = () => {
   const navigate = useNavigate();
-  // const [scrollY, setScrollY] = useState(0);
 
-  // useEffect(() => {
-  //   const handleScroll = () => setScrollY(window.scrollY);
-  //   window.addEventListener("scroll", handleScroll);
-  //   return () => window.removeEventListener("scroll", handleScroll);
-  // }, []);
 
   return (
     <div
       className="min-h-screen relative overflow-hidden"
       style={{ backgroundColor: "#F2EFDE" }}
     >
-      {/* <div
-        className="absolute inset-0 opacity-20"
-        style={{ transform: `translateY(${scrollY * 0.5}px)` }}
-      >
-        <div
-          className="absolute top-20 left-10 w-72 h-72 rounded-full mix-blend-multiply filter blur-xl animate-pulse"
-          style={{ background: "linear-gradient(135deg, #A4193D, #F4A261)" }}
-        ></div>
-        <div
-          className="absolute top-40 right-10 w-96 h-96 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-700"
-          style={{ background: "linear-gradient(135deg, #2A9D8F, #FFDFB9)" }}
-        ></div>
-        <div
-          className="absolute bottom-40 left-1/2 w-80 h-80 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-1000"
-          style={{ background: "linear-gradient(135deg, #F4A261, #A4193D)" }}
-        ></div>
-      </div> */}
+    
 
       <section className="relative z-10 px-6 py-8">
         <div className="flex justify-center pt-8 mb-16">
