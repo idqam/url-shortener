@@ -19,17 +19,28 @@ function App() {
 
   useEffect(() => {
     const restoreSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const timeout = setTimeout(() => {
+        console.log("Session check timeout, proceeding anyway...");
+        setSessionChecked(true);
+      }, 5000);
 
-      if (session?.user?.id && session?.access_token) {
-        login(session.user.id, session.access_token);
-      } else {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        clearTimeout(timeout);
+
+        if (session?.user?.id && session?.access_token) {
+          login(session.user.id, session.access_token);
+        } else {
+          logout();
+        }
+      } catch (error) {
+        console.error("Session error:", error);
         logout();
+      } finally {
+        setSessionChecked(true);
       }
-
-      setSessionChecked(true);
     };
 
     restoreSession();
