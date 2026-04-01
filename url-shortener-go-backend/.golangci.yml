@@ -1,0 +1,35 @@
+version: "2"
+
+linters:
+  enable:
+    - bodyclose
+    - errcheck
+    - gocritic
+    - gosec
+    - govet
+    - misspell
+    - noctx
+    - prealloc
+    - revive
+    - staticcheck
+    - unparam
+  settings:
+    gosec:
+      excludes:
+        - G114
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - gocritic
+
+run:
+  timeout: 5m
