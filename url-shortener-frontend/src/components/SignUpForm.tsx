@@ -2,7 +2,7 @@
 import { signupAndRegister } from "../api/signup";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle, ArrowRight } from "lucide-react";
 
 export const SignupForm = () => {
   const [email, setEmail] = useState("");
@@ -32,6 +32,9 @@ export const SignupForm = () => {
 
   const passwordStrength = getPasswordStrength(password);
 
+  const strengthColors = ["", "#ef4444", "#f59e0b", "#10b981", "#059669"];
+  const strengthBgColors = ["", "rgba(239,68,68,0.1)", "rgba(245,158,11,0.1)", "rgba(16,185,129,0.1)", "rgba(5,150,105,0.1)"];
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -60,15 +63,20 @@ export const SignupForm = () => {
     }
   };
 
-  const inputClass =
-    "w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors text-sm";
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: "0.8125rem",
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    marginBottom: "0.5rem",
+    letterSpacing: "0.02em",
+  };
 
   return (
-    <form className="space-y-5" onSubmit={handleSignup}>
+    <form style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }} onSubmit={handleSignup}>
+      {/* Email */}
       <div>
-        <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 mb-1.5">
-          Email Address
-        </label>
+        <label htmlFor="signup-email" style={labelStyle}>Email address</label>
         <input
           id="signup-email"
           name="email"
@@ -77,19 +85,20 @@ export const SignupForm = () => {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-          placeholder="Enter your email"
+          className="input-dark"
+          placeholder="you@example.com"
         />
         {email && !isValidEmail(email) && (
-          <p className="mt-1 text-xs text-red-600">Please enter a valid email address</p>
+          <p style={{ marginTop: "0.375rem", fontSize: "0.75rem", color: "rgb(248,113,113)" }}>
+            Please enter a valid email address
+          </p>
         )}
       </div>
 
+      {/* Password */}
       <div>
-        <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 mb-1.5">
-          Password
-        </label>
-        <div className="relative">
+        <label htmlFor="signup-password" style={labelStyle}>Password</label>
+        <div style={{ position: "relative" }}>
           <input
             id="signup-password"
             name="password"
@@ -98,46 +107,46 @@ export const SignupForm = () => {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={`${inputClass} pr-10`}
+            className="input-dark"
             placeholder="Minimum 6 characters"
+            style={{ paddingRight: "2.75rem" }}
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
             onClick={() => setShowPassword(!showPassword)}
+            style={{ position: "absolute", right: "0.875rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", padding: 0, transition: "color 0.2s" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-secondary)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4 text-gray-400" />
-            ) : (
-              <Eye className="h-4 w-4 text-gray-400" />
-            )}
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
 
         {password && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+          <div style={{ marginTop: "0.625rem", display: "flex", alignItems: "center", gap: "0.625rem" }}>
+            <div style={{ flex: 1, height: 3, background: "var(--bg-elevated)", borderRadius: 999, overflow: "hidden" }}>
               <div
-                className="h-1.5 rounded-full transition-all"
                 style={{
+                  height: "100%",
+                  borderRadius: 999,
+                  transition: "width 0.3s, background 0.3s",
                   width: `${(passwordStrength.strength / 4) * 100}%`,
-                  backgroundColor:
-                    passwordStrength.strength === 1 ? "#EF4444" :
-                    passwordStrength.strength === 2 ? "#F59E0B" :
-                    passwordStrength.strength === 3 ? "#10B981" : "#059669",
+                  background: strengthColors[passwordStrength.strength],
+                  boxShadow: `0 0 8px ${strengthBgColors[passwordStrength.strength]}`,
                 }}
               />
             </div>
-            <span className="text-xs text-gray-500">{passwordStrength.text}</span>
+            <span style={{ fontSize: "0.75rem", color: strengthColors[passwordStrength.strength] || "var(--text-muted)", fontWeight: 500 }}>
+              {passwordStrength.text}
+            </span>
           </div>
         )}
       </div>
 
+      {/* Confirm Password */}
       <div>
-        <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1.5">
-          Confirm Password
-        </label>
-        <div className="relative">
+        <label htmlFor="confirm-password" style={labelStyle}>Confirm password</label>
+        <div style={{ position: "relative" }}>
           <input
             id="confirm-password"
             name="confirmPassword"
@@ -146,66 +155,66 @@ export const SignupForm = () => {
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className={`${inputClass} pr-10`}
+            className="input-dark"
             placeholder="Confirm your password"
+            style={{ paddingRight: "2.75rem" }}
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            style={{ position: "absolute", right: "0.875rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", padding: 0, transition: "color 0.2s" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-secondary)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
           >
-            {showConfirmPassword ? (
-              <EyeOff className="h-4 w-4 text-gray-400" />
-            ) : (
-              <Eye className="h-4 w-4 text-gray-400" />
-            )}
+            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
 
         {confirmPassword && (
-          <div className="mt-1.5 flex items-center gap-1.5">
+          <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
             {passwordsMatch ? (
               <>
-                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                <span className="text-xs text-green-600">Passwords match</span>
+                <CheckCircle size={13} color="#10b981" />
+                <span style={{ fontSize: "0.75rem", color: "#10b981" }}>Passwords match</span>
               </>
             ) : (
               <>
-                <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                <span className="text-xs text-red-600">Passwords do not match</span>
+                <AlertCircle size={13} color="rgb(248,113,113)" />
+                <span style={{ fontSize: "0.75rem", color: "rgb(248,113,113)" }}>Passwords do not match</span>
               </>
             )}
           </div>
         )}
       </div>
 
+      {/* Error */}
       {errorMsg && (
-        <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200">
-          <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700">{errorMsg}</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 1rem", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "0.5rem" }}>
+          <AlertCircle size={14} color="rgb(248,113,113)" style={{ flexShrink: 0 }} />
+          <p style={{ fontSize: "0.875rem", color: "rgb(248,113,113)", margin: 0 }}>{errorMsg}</p>
         </div>
       )}
 
+      {/* Submit */}
       <button
         type="submit"
-        disabled={
-          isLoading ||
-          !isValidEmail(email) ||
-          !isValidPassword(password) ||
-          !passwordsMatch
-        }
-        className="w-full py-3 px-4 rounded-md text-white text-sm font-semibold bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        disabled={isLoading || !isValidEmail(email) || !isValidPassword(password) || !passwordsMatch}
+        className="btn-primary"
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginTop: "0.25rem" }}
       >
         {isLoading ? (
           <>
-            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            <svg style={{ animation: "spin 0.7s linear infinite", width: 15, height: 15 }} viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="3" strokeLinecap="round" />
             </svg>
-            Creating Account...
+            Creating account...
           </>
         ) : (
-          "Create Account"
+          <>
+            Create account
+            <ArrowRight size={15} />
+          </>
         )}
       </button>
     </form>

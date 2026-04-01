@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../api/login";
 import { useAuthStore } from "../store/AuthStore";
-import { Eye, EyeOff, AlertCircle, Link as LinkIcon } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Link as LinkIcon, ArrowRight } from "lucide-react";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -33,34 +33,48 @@ const LoginPage = () => {
     }
   };
 
-  const inputClass =
-    "w-full px-4 py-3 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors";
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-md mx-auto px-6 h-14 flex items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-            <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-              <LinkIcon className="w-4 h-4 text-white" />
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+      {/* Background orbs */}
+      <div className="orb" style={{ width: 450, height: 450, background: "rgba(124,58,237,0.1)", top: -150, left: "50%", transform: "translateX(-50%)" }} />
+      <div className="orb" style={{ width: 250, height: 250, background: "rgba(34,211,238,0.06)", bottom: 50, right: -80 }} />
+      <div className="bg-grid" style={{ position: "absolute", inset: 0, opacity: 0.4, maskImage: "radial-gradient(ellipse 70% 50% at 50% 0%, black 30%, transparent 100%)" }} />
+
+      {/* Nav */}
+      <header style={{ borderBottom: "1px solid var(--border)", position: "relative", zIndex: 10 }}>
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem", height: 56, display: "flex", alignItems: "center" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}
+            onClick={() => navigate("/")}
+          >
+            <div style={{ width: 28, height: 28, background: "var(--accent)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 12px var(--accent-glow)" }}>
+              <LinkIcon size={14} color="#fff" />
             </div>
-            <span className="font-semibold text-gray-900 text-sm">Shortlink</span>
+            <span className="font-display" style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.9375rem", letterSpacing: "-0.01em" }}>Shortlink</span>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="max-w-md w-full">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-            <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+      {/* Main */}
+      <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1.5rem", position: "relative", zIndex: 1 }}>
+        <div style={{ width: "100%", maxWidth: 420 }} className="animate-fade-up">
+          {/* Heading */}
+          <div style={{ marginBottom: "2rem" }}>
+            <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text)", marginBottom: "0.375rem" }}>
+              Welcome back
+            </h1>
+            <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 300 }}>
+              Sign in to your account to continue
+            </p>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-8">
-            <form className="space-y-5" onSubmit={handleLogin}>
+          {/* Card */}
+          <div className="card-dark" style={{ padding: "2rem" }}>
+            <form style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }} onSubmit={handleLogin}>
+              {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Email Address
+                <label htmlFor="email" style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.5rem", letterSpacing: "0.02em" }}>
+                  Email address
                 </label>
                 <input
                   id="email"
@@ -70,16 +84,17 @@ const LoginPage = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={inputClass}
-                  placeholder="Enter your email"
+                  className="input-dark"
+                  placeholder="you@example.com"
                 />
               </div>
 
+              {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="password" style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.5rem", letterSpacing: "0.02em" }}>
                   Password
                 </label>
-                <div className="relative">
+                <div style={{ position: "relative" }}>
                   <input
                     id="password"
                     name="password"
@@ -88,51 +103,57 @@ const LoginPage = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`${inputClass} pr-10`}
+                    className="input-dark"
                     placeholder="Enter your password"
+                    style={{ paddingRight: "2.75rem" }}
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     onClick={() => setShowPassword(!showPassword)}
+                    style={{ position: "absolute", right: "0.875rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", padding: 0, transition: "color 0.2s" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "var(--text-secondary)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
+              {/* Error */}
               {errorMsg && (
-                <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200">
-                  <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-                  <p className="text-sm text-red-700">{errorMsg}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 1rem", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "0.5rem" }}>
+                  <AlertCircle size={14} color="rgb(248,113,113)" style={{ flexShrink: 0 }} />
+                  <p style={{ fontSize: "0.875rem", color: "rgb(248,113,113)", margin: 0 }}>{errorMsg}</p>
                 </div>
               )}
 
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4 rounded-md text-white text-sm font-semibold bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="btn-primary"
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginTop: "0.25rem" }}
               >
                 {isLoading ? (
                   <>
-                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    <svg style={{ animation: "spin 0.7s linear infinite", width: 15, height: 15 }} viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
+                      <path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="3" strokeLinecap="round" />
                     </svg>
                     Signing in...
                   </>
                 ) : (
-                  "Sign In"
+                  <>
+                    Sign in
+                    <ArrowRight size={15} />
+                  </>
                 )}
               </button>
 
-              <p className="text-center text-sm text-gray-500">
+              {/* Signup link */}
+              <p style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
                 Don't have an account?{" "}
-                <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-700">
+                <Link to="/signup" style={{ color: "var(--accent-bright)", fontWeight: 500, textDecoration: "none" }}>
                   Create one
                 </Link>
               </p>

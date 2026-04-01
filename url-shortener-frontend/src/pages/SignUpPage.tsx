@@ -6,31 +6,47 @@ export const SignUpPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-md mx-auto px-6 h-14 flex items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-            <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-              <LinkIcon className="w-4 h-4 text-white" />
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+      {/* Background orbs */}
+      <div className="orb" style={{ width: 450, height: 450, background: "rgba(124,58,237,0.1)", top: -150, left: "50%", transform: "translateX(-50%)" }} />
+      <div className="orb" style={{ width: 200, height: 200, background: "rgba(34,211,238,0.06)", bottom: 100, left: -60 }} />
+      <div className="bg-grid" style={{ position: "absolute", inset: 0, opacity: 0.4, maskImage: "radial-gradient(ellipse 70% 50% at 50% 0%, black 30%, transparent 100%)" }} />
+
+      {/* Nav */}
+      <header style={{ borderBottom: "1px solid var(--border)", position: "relative", zIndex: 10 }}>
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 1.5rem", height: 56, display: "flex", alignItems: "center" }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}
+            onClick={() => navigate("/")}
+          >
+            <div style={{ width: 28, height: 28, background: "var(--accent)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 12px var(--accent-glow)" }}>
+              <LinkIcon size={14} color="#fff" />
             </div>
-            <span className="font-semibold text-gray-900 text-sm">Shortlink</span>
+            <span className="font-display" style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.9375rem", letterSpacing: "-0.01em" }}>Shortlink</span>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="max-w-md w-full">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
-            <p className="text-sm text-gray-500 mt-1">Start shortening URLs and tracking analytics</p>
+      {/* Main */}
+      <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1.5rem", position: "relative", zIndex: 1 }}>
+        <div style={{ width: "100%", maxWidth: 420 }} className="animate-fade-up">
+          {/* Heading */}
+          <div style={{ marginBottom: "2rem" }}>
+            <h1 className="font-display" style={{ fontSize: "2rem", fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text)", marginBottom: "0.375rem" }}>
+              Create an account
+            </h1>
+            <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 300 }}>
+              Start shortening links and tracking analytics
+            </p>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-8">
+          {/* Card */}
+          <div className="card-dark" style={{ padding: "2rem" }}>
             <SignupForm />
 
-            <p className="mt-6 text-center text-sm text-gray-500">
+            <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "0.875rem", color: "var(--text-muted)" }}>
               Already have an account?{" "}
-              <Link to="/login" className="font-medium text-blue-600 hover:text-blue-700">
+              <Link to="/login" style={{ color: "var(--accent-bright)", fontWeight: 500, textDecoration: "none" }}>
                 Sign in
               </Link>
             </p>

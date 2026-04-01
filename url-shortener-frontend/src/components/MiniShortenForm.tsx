@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuthStore } from "../store/AuthStore";
 import { useShortenURL } from "../api/urls";
 import { isValidUrl } from "../utils/isValidUrl";
+import { ArrowRight, ExternalLink } from "lucide-react";
 
 export function MiniShortenerForm() {
   const [url, setUrl] = useState("");
@@ -38,35 +39,41 @@ export function MiniShortenerForm() {
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", gap: "0.5rem", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "0.625rem", padding: "0.3rem" }}>
         <input
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Paste a URL to shorten"
           required
-          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder-gray-400"
+          style={{
+            flex: 1, padding: "0.5rem 0.75rem",
+            background: "transparent", border: "none", outline: "none",
+            color: "var(--text)", fontSize: "0.875rem", fontFamily: "DM Sans, sans-serif",
+          }}
         />
         <button
           type="submit"
           disabled={isPending}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-60"
+          className="btn-primary"
+          style={{ display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.5rem 1rem", borderRadius: "0.4rem", fontSize: "0.8125rem" }}
         >
-          {isPending ? "Shortening..." : "Shorten"}
+          {isPending ? "..." : <><span>Shorten</span><ArrowRight size={12} /></>}
         </button>
       </form>
 
       {result && (
-        <div className="mt-2 text-sm bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-          <a href={result} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.5rem 0.75rem", background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.2)", borderRadius: "0.5rem" }}>
+          <ExternalLink size={12} color="var(--cyan)" style={{ flexShrink: 0 }} />
+          <a href={result} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.8125rem", color: "var(--cyan)", textDecoration: "none", fontFamily: "DM Mono, monospace", wordBreak: "break-all" }}>
             {result}
           </a>
         </div>
       )}
 
       {error && (
-        <p className="mt-2 text-sm text-red-600">{error}</p>
+        <p style={{ fontSize: "0.8125rem", color: "rgb(248,113,113)", margin: 0 }}>{error}</p>
       )}
     </div>
   );

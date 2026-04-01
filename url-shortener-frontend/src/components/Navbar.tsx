@@ -1,4 +1,4 @@
-import { Link as LinkIcon } from "lucide-react";
+import { Link as LinkIcon, Zap, LogOut } from "lucide-react";
 import { useAuthStore } from "../store/AuthStore";
 import { supabase } from "../lib/supabaseClient";
 
@@ -16,25 +16,68 @@ export function Navbar({ onToggleShortener, showShortener }: NavbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-            <LinkIcon className="w-4 h-4 text-white" />
+    <header style={{ position: "sticky", top: 0, zIndex: 10, background: "rgba(7,7,15,0.85)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div style={{ width: 28, height: 28, background: "var(--accent)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 12px var(--accent-glow)" }}>
+            <LinkIcon size={14} color="#fff" />
           </div>
-          <span className="font-semibold text-gray-900 text-sm">Shortlink</span>
+          <span className="font-display" style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.9375rem", letterSpacing: "-0.01em" }}>Shortlink</span>
         </div>
-        <div className="flex items-center gap-1">
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <button
             onClick={onToggleShortener}
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            style={{
+              display: "flex", alignItems: "center", gap: "0.375rem",
+              padding: "0.4375rem 0.875rem",
+              background: showShortener ? "var(--accent-dim)" : "transparent",
+              border: `1px solid ${showShortener ? "rgba(124,58,237,0.35)" : "var(--border)"}`,
+              borderRadius: "0.5rem",
+              color: showShortener ? "var(--accent-bright)" : "var(--text-secondary)",
+              fontSize: "0.8125rem", fontWeight: 500, cursor: "pointer",
+              transition: "all 0.2s", fontFamily: "DM Sans, sans-serif",
+            }}
+            onMouseEnter={e => {
+              if (!showShortener) {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-bright)";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--text)";
+              }
+            }}
+            onMouseLeave={e => {
+              if (!showShortener) {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
+              }
+            }}
           >
-            {showShortener ? "Hide Shortener" : "Quick Shorten"}
+            <Zap size={13} />
+            {showShortener ? "Hide" : "Quick Shorten"}
           </button>
           <button
             onClick={handleSignOut}
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            style={{
+              display: "flex", alignItems: "center", gap: "0.375rem",
+              padding: "0.4375rem 0.875rem",
+              background: "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: "0.5rem",
+              color: "var(--text-secondary)",
+              fontSize: "0.8125rem", fontWeight: 500, cursor: "pointer",
+              transition: "all 0.2s", fontFamily: "DM Sans, sans-serif",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.4)";
+              (e.currentTarget as HTMLButtonElement).style.color = "rgb(248,113,113)";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.07)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
+              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+            }}
           >
+            <LogOut size={13} />
             Sign out
           </button>
         </div>

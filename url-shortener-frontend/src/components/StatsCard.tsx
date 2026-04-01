@@ -8,12 +8,23 @@ interface StatCardProps {
 
 export const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors">
-      <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+    <div
+      className="card-dark"
+      style={{ padding: "1.25rem", transition: "border-color 0.2s, transform 0.2s" }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border-bright)";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+      }}
+    >
+      <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-dim)", border: "1px solid rgba(124,58,237,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {icon}
       </div>
-      <p className="text-sm font-medium text-gray-500 mt-3">{title}</p>
-      <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+      <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", marginTop: "0.875rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>{title}</p>
+      <p className="font-display" style={{ fontSize: "1.875rem", fontWeight: 800, color: "var(--text)", marginTop: "0.25rem", letterSpacing: "-0.02em" }}>{value}</p>
     </div>
   );
 };
