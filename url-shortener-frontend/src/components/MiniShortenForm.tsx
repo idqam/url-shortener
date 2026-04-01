@@ -17,7 +17,6 @@ export function MiniShortenerForm() {
       setError("Please enter a URL.");
       return;
     }
-
     if (!isValidUrl(url)) {
       setError("Please enter a valid URL (http/https).");
       return;
@@ -32,7 +31,6 @@ export function MiniShortenerForm() {
       setResult(data.short_url);
       setError(null);
     } catch (err: any) {
-      console.error("Error:", err);
       setError(err?.message || "An error occurred.");
       setResult(null);
     }
@@ -40,44 +38,36 @@ export function MiniShortenerForm() {
   };
 
   return (
-    <div className="mb-10 ">
-      <form onSubmit={handleSubmit} className="w-full mt-6 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="Paste a URL"
-            required
-            className="flex-1 px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-green-600 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            type="submit"
-            disabled={isPending}
-            className="px-5 py-3 text-sm font-semibold text-white rounded-xl bg-[#A4193D] hover:scale-105 hover:shadow-md transition disabled:opacity-60"
-          >
-            {isPending ? "Shortening..." : "Shorten"}
-          </button>
-        </div>
-
-        {result && (
-          <div className="text-sm bg-white/80 backdrop-blur rounded-xl p-3 text-center">
-            <a
-              href={result}
-              target="_blank"
-              className="text-blue-600 font-medium hover:underline"
-            >
-              {result}
-            </a>
-          </div>
-        )}
-
-        {error && (
-          <div className="text-sm text-red-600 bg-red-100 rounded-xl p-2 text-center">
-            {error}
-          </div>
-        )}
+    <div>
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Paste a URL to shorten"
+          required
+          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder-gray-400"
+        />
+        <button
+          type="submit"
+          disabled={isPending}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-60"
+        >
+          {isPending ? "Shortening..." : "Shorten"}
+        </button>
       </form>
+
+      {result && (
+        <div className="mt-2 text-sm bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+          <a href={result} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+            {result}
+          </a>
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-2 text-sm text-red-600">{error}</p>
+      )}
     </div>
   );
 }

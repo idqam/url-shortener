@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../api/login";
 import { useAuthStore } from "../store/AuthStore";
-import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Link as LinkIcon } from "lucide-react";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -21,11 +21,9 @@ const LoginPage = () => {
 
     try {
       const { userId, accessToken } = await loginUser(email, password);
-
       if (!userId || !accessToken) {
         throw new Error("Failed to get user credentials");
       }
-
       login(userId, accessToken);
       navigate("/dashboard");
     } catch (err: any) {
@@ -35,176 +33,113 @@ const LoginPage = () => {
     }
   };
 
+  const inputClass =
+    "w-full px-4 py-3 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors";
+
   return (
-    <div
-      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
-      style={{ backgroundColor: "#F2EFDE" }}
-    >
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2
-            className="text-4xl font-bold mb-2"
-            style={{
-              background: `linear-gradient(135deg, #A4193D 0%, #F4A261 100%)`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Welcome Back
-          </h2>
-          <p className="text-lg" style={{ color: "#6B7280" }}>
-            Sign in to your account to continue
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <form className="space-y-6" onSubmit={handleLogin}>
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-semibold mb-2"
-                style={{ color: "#111827" }}
-              >
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200"
-                onFocus={(e) => (e.target.style.borderColor = "#A4193D")}
-                onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")}
-                placeholder="Enter your email"
-              />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-md mx-auto px-6 h-14 flex items-center">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+            <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+              <LinkIcon className="w-4 h-4 text-white" />
             </div>
+            <span className="font-semibold text-gray-900 text-sm">Shortlink</span>
+          </div>
+        </div>
+      </header>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-semibold mb-2"
-                style={{ color: "#111827" }}
-              >
-                Password
-              </label>
-              <div className="relative">
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
+            <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <form className="space-y-5" onSubmit={handleLogin}>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Email Address
+                </label>
                 <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200"
-                  onFocus={(e) => (e.target.style.borderColor = "#A4193D")}
-                  onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")}
-                  placeholder="Enter your password"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputClass}
+                  placeholder="Enter your email"
                 />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" style={{ color: "#6B7280" }} />
-                  ) : (
-                    <Eye className="h-5 w-5" style={{ color: "#6B7280" }} />
-                  )}
-                </button>
               </div>
-            </div>
 
-            {errorMsg && (
-              <div className="flex items-center space-x-2 p-4 rounded-xl bg-red-50 border border-red-200">
-                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                <p className="text-sm text-red-700 font-medium">{errorMsg}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-white font-semibold text-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:transform-none disabled:hover:shadow-lg"
-              style={{
-                background: isLoading
-                  ? "#6B7280"
-                  : `linear-gradient(135deg, #A4193D 0%, #F4A261 100%)`,
-              }}
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${inputClass} pr-10`}
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => setShowPassword(!showPassword)}
                   >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Signing in...
-                </>
-              ) : (
-                "Sign In"
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {errorMsg && (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200">
+                  <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                  <p className="text-sm text-red-700">{errorMsg}</p>
+                </div>
               )}
-            </button>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-gray-500 font-medium">
-                  Don't have an account?
-                </span>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <Link
-                to="/signup"
-                className="inline-flex items-center px-6 py-2 border-2 rounded-xl font-semibold text-sm transition-all duration-200 hover:shadow-md"
-                style={{
-                  borderColor: "#A4193D",
-                  color: "#A4193D",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#A4193D";
-                  e.currentTarget.style.color = "white";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = "#A4193D";
-                }}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 rounded-md text-white text-sm font-semibold bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Create New Account
-              </Link>
-            </div>
-          </form>
-        </div>
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </button>
 
-        <div className="text-center">
-          <p className="text-sm" style={{ color: "#6B7280" }}>
-            Secure login powered by Supabase
-          </p>
+              <p className="text-center text-sm text-gray-500">
+                Don't have an account?{" "}
+                <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-700">
+                  Create one
+                </Link>
+              </p>
+            </form>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

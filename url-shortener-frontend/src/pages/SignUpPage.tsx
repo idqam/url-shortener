@@ -1,61 +1,42 @@
 import { SignupForm } from "../components/SignUpForm";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Link as LinkIcon } from "lucide-react";
 
 export const SignUpPage = () => {
+  const navigate = useNavigate();
+
   return (
-    <div
-      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
-      style={{ backgroundColor: "#F2EFDE" }}
-    >
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <div className="flex justify-center items-center mb-6"></div>
-          <h2
-            className="text-4xl font-bold mb-2 hover:bg-amber-500"
-            style={{
-              background: `linear-gradient(135deg, #A4193D 0%, #F4A261 100%)`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Create Account
-          </h2>
-          <p className="text-lg" style={{ color: "#6B7280" }}>
-            Start shortening URLs and tracking analytics
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <SignupForm />
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-md mx-auto px-6 h-14 flex items-center">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+            <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+              <LinkIcon className="w-4 h-4 text-white" />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500 font-medium">
-                Already have an account?
-              </span>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <Link
-              to="/login"
-              className="inline-flex items-center px-6 py-2 border-2 rounded-xl font-semibold text-sm transition-all duration-200 hover:shadow-md border-[#A4193D] text-[#A4193D] hover:bg-[#A4193D] hover:text-white"
-            >
-              Sign In Instead
-            </Link>
+            <span className="font-semibold text-gray-900 text-sm">Shortlink</span>
           </div>
         </div>
+      </header>
 
-        <div className="text-center">
-          <p className="text-sm" style={{ color: "#6B7280" }}>
-            Secure signup powered by Supabase
-          </p>
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
+            <p className="text-sm text-gray-500 mt-1">Start shortening URLs and tracking analytics</p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <SignupForm />
+
+            <p className="mt-6 text-center text-sm text-gray-500">
+              Already have an account?{" "}
+              <Link to="/login" className="font-medium text-blue-600 hover:text-blue-700">
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -1,6 +1,5 @@
 import { useAuthStore } from "../store/AuthStore";
 import { supabase } from "../lib/supabaseClient";
-import { analyticsColors } from "../constants/colors";
 
 export default function SignOutButton() {
   const logout = useAuthStore((state) => state.logout);
@@ -13,12 +12,9 @@ export default function SignOutButton() {
   return (
     <button
       onClick={handleSignOut}
-      className="mt-6 px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:scale-105"
-      style={{
-        backgroundImage: `linear-gradient(135deg, ${analyticsColors.gradient1}, ${analyticsColors.gradient2})`,
-      }}
+      className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
     >
-      Sign Out
+      Sign out
     </button>
   );
 }

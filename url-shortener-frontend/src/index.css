@@ -1,17 +1,9 @@
 @import "tailwindcss";
 
-:root {
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --accent: #fcd5ce;
-  --background: #fef6f0;
-  --text: #111827;
-  --muted: #6b7280;
-}
-
 body {
   margin: 0;
-  font-family: "Segoe UI", sans-serif;
-  background-color: var(--background);
-  color: var(--text);
+  font-family: Inter, "Segoe UI", sans-serif;
+  background-color: #ffffff;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
 }

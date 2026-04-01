@@ -40,12 +40,10 @@ export const SignupForm = () => {
       setErrorMsg("Please enter a valid email address.");
       return;
     }
-
     if (!isValidPassword(password)) {
       setErrorMsg("Password must be at least 6 characters long.");
       return;
     }
-
     if (!passwordsMatch) {
       setErrorMsg("Passwords do not match.");
       return;
@@ -62,14 +60,13 @@ export const SignupForm = () => {
     }
   };
 
+  const inputClass =
+    "w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors text-sm";
+
   return (
-    <form className="space-y-6" onSubmit={handleSignup}>
+    <form className="space-y-5" onSubmit={handleSignup}>
       <div>
-        <label
-          htmlFor="signup-email"
-          className="block text-sm font-semibold mb-2"
-          style={{ color: "#111827" }}
-        >
+        <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 mb-1.5">
           Email Address
         </label>
         <input
@@ -80,24 +77,16 @@ export const SignupForm = () => {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200"
-          onFocus={(e) => (e.target.style.borderColor = "#A4193D")}
-          onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")}
+          className={inputClass}
           placeholder="Enter your email"
         />
         {email && !isValidEmail(email) && (
-          <p className="mt-1 text-sm text-red-600">
-            Please enter a valid email address
-          </p>
+          <p className="mt-1 text-xs text-red-600">Please enter a valid email address</p>
         )}
       </div>
 
       <div>
-        <label
-          htmlFor="signup-password"
-          className="block text-sm font-semibold mb-2"
-          style={{ color: "#111827" }}
-        >
+        <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 mb-1.5">
           Password
         </label>
         <div className="relative">
@@ -109,62 +98,43 @@ export const SignupForm = () => {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200"
-            onFocus={(e) => (e.target.style.borderColor = "#A4193D")}
-            onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")}
-            placeholder="Create a password (min 6 characters)"
+            className={`${inputClass} pr-10`}
+            placeholder="Minimum 6 characters"
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-4 flex items-center"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
-              <EyeOff className="h-5 w-5" style={{ color: "#6B7280" }} />
+              <EyeOff className="h-4 w-4 text-gray-400" />
             ) : (
-              <Eye className="h-5 w-5" style={{ color: "#6B7280" }} />
+              <Eye className="h-4 w-4 text-gray-400" />
             )}
           </button>
         </div>
 
         {password && (
-          <div className="mt-2">
-            <div className="flex items-center space-x-2">
-              <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div
-                  className="h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${(passwordStrength.strength / 4) * 100}%`,
-                    backgroundColor:
-                      passwordStrength.strength === 1
-                        ? "#EF4444"
-                        : passwordStrength.strength === 2
-                        ? "#F59E0B"
-                        : passwordStrength.strength === 3
-                        ? "#10B981"
-                        : passwordStrength.strength === 4
-                        ? "#059669"
-                        : "#E5E7EB",
-                  }}
-                />
-              </div>
-              <span
-                className="text-xs font-medium"
-                style={{ color: "#6B7280" }}
-              >
-                {passwordStrength.text}
-              </span>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+              <div
+                className="h-1.5 rounded-full transition-all"
+                style={{
+                  width: `${(passwordStrength.strength / 4) * 100}%`,
+                  backgroundColor:
+                    passwordStrength.strength === 1 ? "#EF4444" :
+                    passwordStrength.strength === 2 ? "#F59E0B" :
+                    passwordStrength.strength === 3 ? "#10B981" : "#059669",
+                }}
+              />
             </div>
+            <span className="text-xs text-gray-500">{passwordStrength.text}</span>
           </div>
         )}
       </div>
 
       <div>
-        <label
-          htmlFor="confirm-password"
-          className="block text-sm font-semibold mb-2"
-          style={{ color: "#111827" }}
-        >
+        <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1.5">
           Confirm Password
         </label>
         <div className="relative">
@@ -176,39 +146,33 @@ export const SignupForm = () => {
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-0 transition-all duration-200"
-            onFocus={(e) => (e.target.style.borderColor = "#A4193D")}
-            onBlur={(e) => (e.target.style.borderColor = "#E5E7EB")}
+            className={`${inputClass} pr-10`}
             placeholder="Confirm your password"
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-4 flex items-center"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
           >
             {showConfirmPassword ? (
-              <EyeOff className="h-5 w-5" style={{ color: "#6B7280" }} />
+              <EyeOff className="h-4 w-4 text-gray-400" />
             ) : (
-              <Eye className="h-5 w-5" style={{ color: "#6B7280" }} />
+              <Eye className="h-4 w-4 text-gray-400" />
             )}
           </button>
         </div>
 
         {confirmPassword && (
-          <div className="mt-2 flex items-center space-x-2">
+          <div className="mt-1.5 flex items-center gap-1.5">
             {passwordsMatch ? (
               <>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">
-                  Passwords match
-                </span>
+                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                <span className="text-xs text-green-600">Passwords match</span>
               </>
             ) : (
               <>
-                <AlertCircle className="h-4 w-4 text-red-500" />
-                <span className="text-sm text-red-600 font-medium">
-                  Passwords do not match
-                </span>
+                <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                <span className="text-xs text-red-600">Passwords do not match</span>
               </>
             )}
           </div>
@@ -216,9 +180,9 @@ export const SignupForm = () => {
       </div>
 
       {errorMsg && (
-        <div className="flex items-center space-x-2 p-4 rounded-xl bg-red-50 border border-red-200">
-          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700 font-medium">{errorMsg}</p>
+        <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200">
+          <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-700">{errorMsg}</p>
         </div>
       )}
 
@@ -230,35 +194,13 @@ export const SignupForm = () => {
           !isValidPassword(password) ||
           !passwordsMatch
         }
-        className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-white font-semibold text-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:transform-none disabled:hover:shadow-lg"
-        style={{
-          background:
-            isLoading || !isValidEmail(email) || !isValidPassword(password)
-              ? "#3B82F6"
-              : "#3B82F6",
-        }}
+        className="w-full py-3 px-4 rounded-md text-white text-sm font-semibold bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {isLoading ? (
           <>
-            <svg
-              className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
+            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
             Creating Account...
           </>
