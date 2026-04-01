@@ -9,6 +9,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const accessToken = useAuthStore((s) => s.accessToken);
 
+  if (import.meta.env.DEV) {
+    return <>{children}</>;
+  }
+
   if (isAuthenticated && !accessToken) {
     return (
       <div className="min-h-screen flex items-center justify-center">

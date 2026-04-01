@@ -1,6 +1,7 @@
 import type { ErrorResponse } from "react-router-dom";
 
 import { useQuery } from "@tanstack/react-query";
+import { mockDashboardData } from "../dev/mockDashboardData";
 import type {
   AnalyticsDashboard,
   AnalyticsParams,
@@ -111,10 +112,12 @@ export async function getDailyTrend(
 export function useAnalyticsDashboard(token: string) {
   return useQuery({
     queryKey: ["analytics-dashboard"],
-    queryFn: () => getAnalyticsDashboard(token),
-    enabled: !!token,
+    queryFn: import.meta.env.DEV
+      ? () => Promise.resolve(mockDashboardData)
+      : () => getAnalyticsDashboard(token),
+    enabled: import.meta.env.DEV || !!token,
     staleTime: 5 * 60 * 1000,
-    refetchInterval: 10 * 60 * 1000,
+    refetchInterval: import.meta.env.DEV ? false : 10 * 60 * 1000,
   });
 }
 
