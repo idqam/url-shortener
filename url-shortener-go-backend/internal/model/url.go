@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 )
@@ -25,8 +24,7 @@ type URLSubset struct {
 	Click_Count  int    `json:"click_count"`
 }
 
-func (u *URL) PopulateShortURL() {
-	baseDomain := os.Getenv("SHORT_DOMAIN")
+func (u *URL) PopulateShortURL(baseDomain string) {
 	if baseDomain == "" {
 		baseDomain = "http://localhost:8080"
 	}

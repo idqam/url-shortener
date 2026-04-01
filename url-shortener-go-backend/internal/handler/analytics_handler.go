@@ -1,11 +1,9 @@
 package handler
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"log"
-	"math/big"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -57,19 +55,17 @@ var (
 
 type AnalyticsHandler struct {
 	analyticsService service.AnalyticsService
-	requestIDGen     func() string
 }
 
 func NewAnalyticsHandler(analyticsService service.AnalyticsService) *AnalyticsHandler {
 	return &AnalyticsHandler{
 		analyticsService: analyticsService,
-		requestIDGen:     generateRequestID,
 	}
 }
 
 func (h *AnalyticsHandler) HandleGetDashboard() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := h.requestIDGen()
+		requestID := middleware.GetRequestID(r.Context())
 
 		if r.Method != http.MethodGet {
 			h.respondError(w, r, http.StatusMethodNotAllowed, ErrMsgMethodNotAllowed, requestID)
@@ -82,19 +78,18 @@ func (h *AnalyticsHandler) HandleGetDashboard() http.HandlerFunc {
 			return
 		}
 
-		log.Printf("[%s] Fetching dashboard for user: %s", requestID, truncateID(userID))
+		slog.Info("fetching dashboard", "request_id", requestID, "user_id", truncateID(userID))
 
 		summary, err := h.analyticsService.GetUserDashboard(r.Context(), userID)
 		if err != nil {
-			log.Printf("[%s] ERROR: Dashboard fetch failed for user %s: %v",
-				requestID, truncateID(userID), err)
+			slog.Error("dashboard fetch failed", "request_id", requestID, "user_id", truncateID(userID), "error", err)
 			h.respondError(w, r, http.StatusInternalServerError,
 				utils.SanitizeError(err, ErrMsgDashboardFetch), requestID)
 			return
 		}
 
 		if summary == nil {
-			log.Printf("[%s] WARN: Dashboard returned nil for user %s", requestID, truncateID(userID))
+			slog.Warn("dashboard returned nil", "request_id", requestID, "user_id", truncateID(userID))
 			h.respondError(w, r, http.StatusInternalServerError, ErrMsgDashboardFetch, requestID)
 			return
 		}
@@ -107,7 +102,7 @@ func (h *AnalyticsHandler) HandleGetDashboard() http.HandlerFunc {
 
 func (h *AnalyticsHandler) HandleGetTopURLs() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := h.requestIDGen()
+		requestID := middleware.GetRequestID(r.Context())
 
 		if r.Method != http.MethodGet {
 			h.respondError(w, r, http.StatusMethodNotAllowed, ErrMsgMethodNotAllowed, requestID)
@@ -126,12 +121,11 @@ func (h *AnalyticsHandler) HandleGetTopURLs() http.HandlerFunc {
 			return
 		}
 
-		log.Printf("[%s] Fetching top %d URLs for user: %s", requestID, limit, truncateID(userID))
+		slog.Info("fetching top urls", "request_id", requestID, "user_id", truncateID(userID), "limit", limit)
 
 		urls, err := h.analyticsService.GetUserTopURLs(r.Context(), userID, limit)
 		if err != nil {
-			log.Printf("[%s] ERROR: Top URLs fetch failed for user %s: %v",
-				requestID, truncateID(userID), err)
+			slog.Error("top urls fetch failed", "request_id", requestID, "user_id", truncateID(userID), "error", err)
 			h.respondError(w, r, http.StatusInternalServerError,
 				utils.SanitizeError(err, ErrMsgTopURLsFetch), requestID)
 			return
@@ -144,7 +138,7 @@ func (h *AnalyticsHandler) HandleGetTopURLs() http.HandlerFunc {
 
 func (h *AnalyticsHandler) HandleGetTopReferrers() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := h.requestIDGen()
+		requestID := middleware.GetRequestID(r.Context())
 
 		if r.Method != http.MethodGet {
 			h.respondError(w, r, http.StatusMethodNotAllowed, ErrMsgMethodNotAllowed, requestID)
@@ -163,12 +157,11 @@ func (h *AnalyticsHandler) HandleGetTopReferrers() http.HandlerFunc {
 			return
 		}
 
-		log.Printf("[%s] Fetching top %d referrers for user: %s", requestID, limit, truncateID(userID))
+		slog.Info("fetching top referrers", "request_id", requestID, "user_id", truncateID(userID), "limit", limit)
 
 		referrers, err := h.analyticsService.GetUserTopReferrers(r.Context(), userID, limit)
 		if err != nil {
-			log.Printf("[%s] ERROR: Top referrers fetch failed for user %s: %v",
-				requestID, truncateID(userID), err)
+			slog.Error("top referrers fetch failed", "request_id", requestID, "user_id", truncateID(userID), "error", err)
 			h.respondError(w, r, http.StatusInternalServerError,
 				utils.SanitizeError(err, ErrMsgReferrersFetch), requestID)
 			return
@@ -181,7 +174,7 @@ func (h *AnalyticsHandler) HandleGetTopReferrers() http.HandlerFunc {
 
 func (h *AnalyticsHandler) HandleGetDeviceBreakdown() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := h.requestIDGen()
+		requestID := middleware.GetRequestID(r.Context())
 
 		if r.Method != http.MethodGet {
 			h.respondError(w, r, http.StatusMethodNotAllowed, ErrMsgMethodNotAllowed, requestID)
@@ -194,12 +187,11 @@ func (h *AnalyticsHandler) HandleGetDeviceBreakdown() http.HandlerFunc {
 			return
 		}
 
-		log.Printf("[%s] Fetching device breakdown for user: %s", requestID, truncateID(userID))
+		slog.Info("fetching device breakdown", "request_id", requestID, "user_id", truncateID(userID))
 
 		devices, err := h.analyticsService.GetUserDeviceBreakdown(r.Context(), userID)
 		if err != nil {
-			log.Printf("[%s] ERROR: Device breakdown fetch failed for user %s: %v",
-				requestID, truncateID(userID), err)
+			slog.Error("device breakdown fetch failed", "request_id", requestID, "user_id", truncateID(userID), "error", err)
 			h.respondError(w, r, http.StatusInternalServerError,
 				utils.SanitizeError(err, ErrMsgDevicesFetch), requestID)
 			return
@@ -212,7 +204,7 @@ func (h *AnalyticsHandler) HandleGetDeviceBreakdown() http.HandlerFunc {
 
 func (h *AnalyticsHandler) HandleGetDailyTrend() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := h.requestIDGen()
+		requestID := middleware.GetRequestID(r.Context())
 
 		if r.Method != http.MethodGet {
 			h.respondError(w, r, http.StatusMethodNotAllowed, ErrMsgMethodNotAllowed, requestID)
@@ -231,13 +223,12 @@ func (h *AnalyticsHandler) HandleGetDailyTrend() http.HandlerFunc {
 			return
 		}
 
-		log.Printf("[%s] Fetching %d-day trend for user: %s", requestID, days, truncateID(userID))
+		slog.Info("fetching daily trend", "request_id", requestID, "user_id", truncateID(userID), "days", days)
 
 		trend, err := h.analyticsService.GetUserDailyTrend(r.Context(), userID, days)
 
 		if err != nil {
-			log.Printf("[%s] ERROR: Daily trend fetch failed for user %s: %v",
-				requestID, truncateID(userID), err)
+			slog.Error("daily trend fetch failed", "request_id", requestID, "user_id", truncateID(userID), "error", err)
 			h.respondError(w, r, http.StatusInternalServerError,
 				utils.SanitizeError(err, ErrMsgTrendFetch), requestID)
 			return
@@ -250,7 +241,7 @@ func (h *AnalyticsHandler) HandleGetDailyTrend() http.HandlerFunc {
 
 func (h *AnalyticsHandler) HandleRecordAnalytics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		requestID := h.requestIDGen()
+		requestID := middleware.GetRequestID(r.Context())
 
 		if r.Method != http.MethodPost {
 			h.respondError(w, r, http.StatusMethodNotAllowed, ErrMsgMethodNotAllowed, requestID)
@@ -259,21 +250,20 @@ func (h *AnalyticsHandler) HandleRecordAnalytics() http.HandlerFunc {
 
 		var req dto.RecordAnalyticsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Printf("[%s] ERROR: Failed to decode analytics request: %v", requestID, err)
+			slog.Error("failed to decode analytics request", "request_id", requestID, "error", err)
 			h.respondError(w, r, http.StatusBadRequest, ErrMsgInvalidRequest, requestID)
 			return
 		}
 
 		if err := h.validateAnalyticsRequest(&req); err != nil {
-			log.Printf("[%s] WARN: Invalid analytics request: %v", requestID, err)
+			slog.Warn("invalid analytics request", "request_id", requestID, "error", err)
 			h.respondError(w, r, http.StatusBadRequest, err.Error(), requestID)
 			return
 		}
 
 		userID := middleware.GetUserIDFromContext(r.Context())
 
-		log.Printf("[%s] Recording analytics: user=%s, url=%s, device=%s",
-			requestID, truncateID(userID), req.URLID, req.DeviceType)
+		slog.Info("recording analytics", "request_id", requestID, "user_id", truncateID(userID), "url_id", req.URLID, "device", req.DeviceType)
 
 		err := h.analyticsService.RecordAnalytics(
 			r.Context(),
@@ -284,7 +274,7 @@ func (h *AnalyticsHandler) HandleRecordAnalytics() http.HandlerFunc {
 		)
 
 		if err != nil {
-			log.Printf("[%s] ERROR: Failed to record analytics: %v", requestID, err)
+			slog.Error("failed to record analytics", "request_id", requestID, "error", err)
 			h.respondError(w, r, http.StatusInternalServerError,
 				utils.SanitizeError(err, ErrMsgRecordFailed), requestID)
 			return
@@ -395,32 +385,18 @@ func (h *AnalyticsHandler) respondJSON(w http.ResponseWriter, status int, data i
 	w.WriteHeader(status)
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("[%s] ERROR: Failed to encode JSON response: %v", requestID, err)
-	}
-}
-
-func RespondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("JSON encode error: %v", err)
+		slog.Error("failed to encode json response", "request_id", requestID, "error", err)
 	}
 }
 
 func (h *AnalyticsHandler) respondError(w http.ResponseWriter, r *http.Request, status int, message string, requestID string) {
-	log.Printf("[%s] Response Error: status=%d, path=%s, method=%s",
-		requestID, status, r.URL.Path, r.Method)
+	slog.Info("response error", "request_id", requestID, "status", status, "path", r.URL.Path, "method", r.Method)
 
-	h.respondJSON(w, status, ErrorResponse2{
+	h.respondJSON(w, status, dto.ErrorResponse{
 		Error:     message,
 		RequestID: requestID,
 		Timestamp: time.Now().Unix(),
 	}, requestID)
-}
-
-func generateRequestID() string {
-	return fmt.Sprintf("req_%d_%d", time.Now().UnixNano(), randomInt())
 }
 
 func truncateID(id string) string {
@@ -431,16 +407,4 @@ func truncateID(id string) string {
 		return id
 	}
 	return id[:8] + "***"
-}
-
-func randomInt() int {
-
-	nBig, _ := rand.Int(rand.Reader, big.NewInt(27))
-	return int(nBig.Int64())
-}
-
-type ErrorResponse2 struct {
-	Error     string `json:"error"`
-	RequestID string `json:"request_id,omitempty"`
-	Timestamp int64  `json:"timestamp,omitempty"`
 }

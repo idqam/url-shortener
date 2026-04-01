@@ -1,27 +1,28 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
-	"log"
+	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
-	"url-shortener-go-backend/internal/cache"
+
 	"url-shortener-go-backend/internal/handler/dto"
 	"url-shortener-go-backend/internal/handler/mapper"
+	"url-shortener-go-backend/internal/metrics"
 	"url-shortener-go-backend/internal/middleware"
 	"url-shortener-go-backend/internal/service"
 	"url-shortener-go-backend/internal/utils"
 )
 
 type URLHandler struct {
-	svc   service.URLService
-	cache cache.Cache
+	svc service.URLService
 }
 
-func NewURLHandler(svc service.URLService, cache cache.Cache) *URLHandler {
-	return &URLHandler{svc: svc, cache: cache}
+func NewURLHandler(svc service.URLService) *URLHandler {
+	return &URLHandler{svc: svc}
 }
 
 func (h *URLHandler) HandleShorten() http.HandlerFunc {
@@ -44,25 +45,9 @@ func (h *URLHandler) HandleShorten() http.HandlerFunc {
 			userIDPtr = &userID
 		}
 
-		ip := getClientIP(r)
-		rateKey := fmt.Sprintf("rate_limit:%s:%s", getUserIDOrAnonymous(userID), ip)
-		count, err := h.cache.Incr(ctx, rateKey)
-		if err != nil {
-			log.Printf("[RateLimit] INCR failed: %v", err)
-			http.Error(w, "Rate limit error", http.StatusInternalServerError)
-			return
-		}
-		if count == 1 {
-			_ = h.cache.Expire(ctx, rateKey, 60*time.Second)
-		}
-		if count > 10 {
-			http.Error(w, "Too many requests — slow down", http.StatusTooManyRequests)
-			return
-		}
-
 		urlModel, err := h.svc.CreateShortURL(ctx, strings.TrimSpace(req.OriginalURL), req.IsPublic, userIDPtr, int(req.CodeLength))
 		if err != nil {
-			log.Printf("[CreateShortURL] failed: %v", err)
+			slog.Error("create short url failed", "error", err)
 			utils.RespondError(w, http.StatusInternalServerError, "Failed to shorten URL", "")
 			return
 		}
@@ -86,12 +71,11 @@ func (h *URLHandler) HandleGetUserUrls() http.HandlerFunc {
 
 		urls, err := h.svc.GetUserUrls(r.Context(), userID)
 		if err != nil {
-			log.Printf("[GetUserUrls] failed: %v", err)
+			slog.Error("get user urls failed", "user_id", userID, "error", err)
 			utils.RespondError(w, http.StatusInternalServerError, "Could not fetch URLs", "")
 			return
 		}
 		utils.RespondJSON(w, http.StatusOK, mapper.ToGetUrlsResponse(urls), "")
-
 	}
 }
 
@@ -111,12 +95,19 @@ func (h *URLHandler) HandleGetUrlByShortCode() http.HandlerFunc {
 
 		ctx := r.Context()
 		url, err := h.svc.GetURLByShortCode(ctx, shortcode)
-		if err != nil || url == nil {
+		if err != nil {
+			if errors.Is(err, utils.ErrNotFound) {
+				utils.RespondError(w, http.StatusNotFound, "URL not found", "")
+				return
+			}
+			utils.RespondError(w, http.StatusInternalServerError, "Could not fetch URL", "")
+			return
+		}
+		if url == nil {
 			utils.RespondError(w, http.StatusNotFound, "URL not found", "")
 			return
 		}
 		utils.RespondJSON(w, http.StatusOK, mapper.ToGetURLByShortCodeResponse(*url), "")
-
 	}
 }
 
@@ -146,35 +137,29 @@ func (h *URLHandler) HandleRedirect() http.HandlerFunc {
 
 		ctx := r.Context()
 		urlEntry, err := h.svc.GetURLByShortCode(ctx, shortcode)
-		if err != nil || urlEntry == nil || urlEntry.OriginalURL == "" {
+		if err != nil {
+			if errors.Is(err, utils.ErrNotFound) {
+				utils.RespondError(w, http.StatusNotFound, "URL not found", "")
+				return
+			}
+			utils.RespondError(w, http.StatusInternalServerError, "Could not fetch URL", "")
+			return
+		}
+		if urlEntry == nil || urlEntry.OriginalURL == "" {
 			utils.RespondError(w, http.StatusNotFound, "URL not found", "")
 			return
 		}
 
 		go func() {
-
-			if err := h.svc.IncrementClickCount(ctx, shortcode); err != nil {
-				log.Printf("[ClickCount] Increment failed: %v", err)
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := h.svc.IncrementClickCount(bgCtx, shortcode); err != nil {
+				slog.Error("click count increment failed", "shortcode", shortcode, "error", err)
 			}
 		}()
 
+		metrics.URLRedirectsTotal.Inc()
 		http.Redirect(w, r, urlEntry.OriginalURL, http.StatusFound)
 	}
 }
 
-func getClientIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = r.RemoteAddr
-	} else {
-		ip = strings.Split(ip, ",")[0]
-	}
-	return strings.TrimSpace(ip)
-}
-
-func getUserIDOrAnonymous(userID string) string {
-	if userID == "" {
-		return "anonymous"
-	}
-	return userID
-}

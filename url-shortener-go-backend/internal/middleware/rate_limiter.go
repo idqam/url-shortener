@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"url-shortener-go-backend/internal/cache"
+	"url-shortener-go-backend/internal/metrics"
 )
 
 type RateLimiter struct {
@@ -24,22 +25,17 @@ type RateLimiterConfig struct {
 	DefaultLimit int
 	WindowTTL    time.Duration
 
-	// Tiered limits
 	AnonymousLimit     int
 	AuthenticatedLimit int
 	PremiumLimit       int
 
-	// Burst configuration
 	BurstEnabled    bool
 	BurstMultiplier float64
 	BurstDuration   time.Duration
 
-	// Response configuration
-	IncludeHeaders bool
-	CustomMessage  string
-
+	IncludeHeaders  bool
+	CustomMessage   string
 	DistributedMode bool
-	SlidingWindow   bool
 }
 
 func NewRateLimiter(c cache.Cache, config *RateLimiterConfig) *RateLimiter {
@@ -67,28 +63,22 @@ func DefaultRateLimiterConfig() *RateLimiterConfig {
 		IncludeHeaders:     true,
 		CustomMessage:      "Rate limit exceeded. Please slow down.",
 		DistributedMode:    false,
-		SlidingWindow:      false,
 	}
 }
+
 func ProductionRateLimiterConfig() *RateLimiterConfig {
 	return &RateLimiterConfig{
-		DefaultLimit: 100,
-		WindowTTL:    time.Minute,
-
-		AnonymousLimit:     20,  // Limited for non-authenticated
-		AuthenticatedLimit: 100, // Standard for logged-in users
-		PremiumLimit:       500, // Higher for premium users
-
-		// Burst configuration (handle traffic spikes)
-		BurstEnabled:    true,
-		BurstMultiplier: 1.5,
-		BurstDuration:   30 * time.Second,
-
-		IncludeHeaders: true,
-		CustomMessage:  "Rate limit exceeded. Please try again later.",
-
-		DistributedMode: true, // Important for production
-		SlidingWindow:   false,
+		DefaultLimit:       100,
+		WindowTTL:          time.Minute,
+		AnonymousLimit:     20,
+		AuthenticatedLimit: 100,
+		PremiumLimit:       500,
+		BurstEnabled:       true,
+		BurstMultiplier:    1.5,
+		BurstDuration:      30 * time.Second,
+		IncludeHeaders:     true,
+		CustomMessage:      "Rate limit exceeded. Please try again later.",
+		DistributedMode:    true,
 	}
 }
 
@@ -99,13 +89,10 @@ func DevelopmentRateLimiterConfig() *RateLimiterConfig {
 		AnonymousLimit:     1000,
 		AuthenticatedLimit: 1000,
 		PremiumLimit:       1000,
-
-		BurstEnabled:   false,
-		IncludeHeaders: true,
-		CustomMessage:  "Rate limit exceeded (dev mode)",
-
-		DistributedMode: false,
-		SlidingWindow:   false,
+		BurstEnabled:       false,
+		IncludeHeaders:     true,
+		CustomMessage:      "Rate limit exceeded (dev mode)",
+		DistributedMode:    false,
 	}
 }
 
@@ -124,7 +111,7 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 
 		key := rl.buildKey(identifier)
 
-		result, err := rl.checkRateLimit(ctx, key, limit)
+		result, err := rl.checkFixedWindow(ctx, key, limit)
 		if err != nil {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
@@ -135,7 +122,7 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 		}
 
 		if result.Exceeded {
-			rl.handleLimitExceeded(w, r, result)
+			rl.handleLimitExceeded(w, r, result, identifier.Tier)
 			return
 		}
 
@@ -162,7 +149,7 @@ func (rl *RateLimiter) CustomMiddleware(limit int, window time.Duration) func(ht
 			}
 
 			if result.Exceeded {
-				rl.handleLimitExceeded(w, r, result)
+				rl.handleLimitExceeded(w, r, result, identifier.Tier)
 				return
 			}
 
@@ -174,7 +161,7 @@ func (rl *RateLimiter) CustomMiddleware(limit int, window time.Duration) func(ht
 type Identifier struct {
 	UserID string
 	IP     string
-	Tier   string // "anonymous", "authenticated", "premium"
+	Tier   string
 }
 
 type RateLimitResult struct {
@@ -192,7 +179,6 @@ func (rl *RateLimiter) getIdentifier(ctx context.Context, r *http.Request) Ident
 	tier := "anonymous"
 	if userID != "" {
 		tier = "authenticated"
-
 	}
 
 	return Identifier{
@@ -242,13 +228,6 @@ func (rl *RateLimiter) buildKey(identifier Identifier) string {
 	return fmt.Sprintf("ratelimit:ip:%s", identifier.IP)
 }
 
-func (rl *RateLimiter) checkRateLimit(ctx context.Context, key string, limit int) (*RateLimitResult, error) {
-	if rl.config.SlidingWindow {
-		return rl.checkSlidingWindow(ctx, key, limit)
-	}
-	return rl.checkFixedWindow(ctx, key, limit)
-}
-
 func (rl *RateLimiter) checkFixedWindow(ctx context.Context, key string, limit int) (*RateLimitResult, error) {
 	if rl.config.BurstEnabled {
 		burstKey := key + ":burst"
@@ -289,11 +268,6 @@ func (rl *RateLimiter) checkFixedWindow(ctx context.Context, key string, limit i
 	return result, nil
 }
 
-func (rl *RateLimiter) checkSlidingWindow(ctx context.Context, key string, limit int) (*RateLimitResult, error) {
-
-	return rl.checkFixedWindow(ctx, key, limit)
-}
-
 func (rl *RateLimiter) checkRateLimitWithCustom(ctx context.Context, key string, limit int, window time.Duration) (*RateLimitResult, error) {
 	count, err := rl.cache.Incr(ctx, key)
 	if err != nil {
@@ -325,7 +299,8 @@ func (rl *RateLimiter) setHeaders(w http.ResponseWriter, result *RateLimitResult
 	}
 }
 
-func (rl *RateLimiter) handleLimitExceeded(w http.ResponseWriter, r *http.Request, result *RateLimitResult) {
+func (rl *RateLimiter) handleLimitExceeded(w http.ResponseWriter, r *http.Request, result *RateLimitResult, tier string) {
+	metrics.RateLimitExceededTotal.WithLabelValues(tier).Inc()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusTooManyRequests)
@@ -355,11 +330,4 @@ func (rl *RateLimiter) isWhitelisted(ip string) bool {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
 	return rl.whitelist[ip]
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

@@ -1,8 +1,6 @@
 package mapper
 
 import (
-	"fmt"
-	"os"
 	"url-shortener-go-backend/internal/handler/dto"
 	"url-shortener-go-backend/internal/model"
 )
@@ -11,7 +9,7 @@ func ToShortenURLResponse(url model.URL) dto.ShortenURLResponse {
 	return dto.ShortenURLResponse{
 		ID:         url.ID,
 		ShortCode:  url.ShortCode,
-		ShortURL:   fmt.Sprintf("%s/%s", os.Getenv("SHORT_DOMAIN"), url.ShortCode),
+		ShortURL:   url.ShortURL,
 		CreatedAt:  url.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		IsPublic:   url.IsPublic,
 		ClickCount: url.ClickCount,
@@ -19,7 +17,7 @@ func ToShortenURLResponse(url model.URL) dto.ShortenURLResponse {
 }
 
 func ToShortenURLResponses(urls []model.URL) []dto.ShortenURLResponse {
-	var responses []dto.ShortenURLResponse
+	responses := make([]dto.ShortenURLResponse, 0, len(urls))
 	for _, u := range urls {
 		responses = append(responses, ToShortenURLResponse(u))
 	}

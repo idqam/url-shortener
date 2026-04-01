@@ -2,7 +2,7 @@ package utils
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -17,14 +17,14 @@ func RespondJSON(w http.ResponseWriter, status int, data any, requestID string) 
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		if requestID != "" {
-			log.Printf("[%s] JSON encode error: %v", requestID, err)
+			slog.Error("json encode error", "request_id", requestID, "error", err)
 		} else {
-			log.Printf("JSON encode error: %v", err)
+			slog.Error("json encode error", "error", err)
 		}
 	}
 }
 
 func RespondError(w http.ResponseWriter, status int, message string, requestID string) {
-	log.Printf("[Error %d] %s", status, message)
+	slog.Error("response error", "status", status, "message", message)
 	RespondJSON(w, status, map[string]string{"error": message}, requestID)
 }

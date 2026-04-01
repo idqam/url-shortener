@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
 	"url-shortener-go-backend/internal/cache"
+	"url-shortener-go-backend/internal/metrics"
 	"url-shortener-go-backend/internal/model"
 	"url-shortener-go-backend/internal/repository"
 	"url-shortener-go-backend/internal/utils"
@@ -19,18 +20,19 @@ type URLService interface {
 	GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error)
 	GetUserUrls(ctx context.Context, userID string) ([]model.URL, error)
 	IncrementClickCount(ctx context.Context, shortcode string) error
-	SaveAnalytics(ctx context.Context, shortcode, referrer, userAgent, ip string, userID *string) error
 }
 
 type URLServiceImpl struct {
 	repo  repository.URLRepository
 	cache cache.Cache
+	salt  string
 }
 
-func NewURLService(repo repository.URLRepository, cache cache.Cache) URLService {
+func NewURLService(repo repository.URLRepository, c cache.Cache, salt string) URLService {
 	return &URLServiceImpl{
 		repo:  repo,
-		cache: cache,
+		cache: c,
+		salt:  salt,
 	}
 }
 
@@ -43,9 +45,9 @@ func (s *URLServiceImpl) CreateShortURL(ctx context.Context, originalURL string,
 		}
 	}
 
-	shortcode, err := utils.GenerateCode(originalURL, codeLength)
+	shortcode, err := utils.GenerateCode(originalURL, codeLength, s.salt)
 	if err != nil {
-		log.Printf("[CreateShortURL] Failed to generate shortcode: %v", err)
+		slog.Error("failed to generate shortcode", "error", err)
 		return nil, fmt.Errorf("failed to generate shortcode")
 	}
 
@@ -60,20 +62,22 @@ func (s *URLServiceImpl) CreateShortURL(ctx context.Context, originalURL string,
 	for retries := 0; retries < 3; retries++ {
 		err := s.repo.SaveURL(ctx, url)
 		if err != nil && strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			shortcode, err := utils.GenerateCode(originalURL, codeLength)
+			shortcode, err := utils.GenerateCode(originalURL, codeLength, s.salt)
 			if err != nil {
-				log.Printf("[CreateShortURL] Failed to generate shortcode on retry: %v", err)
+				slog.Error("failed to generate shortcode on retry", "error", err)
 				return nil, fmt.Errorf("failed to generate shortcode")
 			}
 			url.ShortCode = shortcode
 			continue
 		}
 		if err != nil {
-			log.Printf("[CreateShortURL] Failed to save URL: %v", err)
+			slog.Error("failed to save url", "error", err)
 			return nil, err
 		}
 		break
 	}
+
+	metrics.URLShortensTotal.Inc()
 
 	if jsonVal, err := json.Marshal(url); err == nil {
 		_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
@@ -94,7 +98,7 @@ func (s *URLServiceImpl) GetURLByShortCode(ctx context.Context, shortcode string
 
 	url, err := s.repo.GetURLByShortCode(ctx, shortcode)
 	if err != nil {
-		log.Printf("[GetURLByShortCode] DB lookup failed: %v", err)
+		slog.Error("db lookup failed for shortcode", "shortcode", shortcode, "error", err)
 		return nil, err
 	}
 
@@ -116,7 +120,7 @@ func (s *URLServiceImpl) GetUserUrls(ctx context.Context, userID string) ([]mode
 
 	urls, err := s.repo.GetUserUrls(ctx, userID)
 	if err != nil {
-		log.Printf("[GetUserUrls] DB fetch failed for user %s: %v", userID, err)
+		slog.Error("db fetch failed for user urls", "user_id", userID, "error", err)
 		return nil, err
 	}
 
@@ -129,10 +133,7 @@ func (s *URLServiceImpl) GetUserUrls(ctx context.Context, userID string) ([]mode
 func (s *URLServiceImpl) IncrementClickCount(ctx context.Context, shortcode string) error {
 	err := s.repo.IncrementClickCount(ctx, shortcode)
 	if err != nil {
-		log.Printf("[IncrementClickCount] Failed for shortcode %s: %v", shortcode, err)
+		slog.Error("failed to increment click count", "shortcode", shortcode, "error", err)
 	}
 	return err
-}
-func (s *URLServiceImpl) SaveAnalytics(ctx context.Context, shortcode, referrer, userAgent, ip string, userID *string) error {
-	return fmt.Errorf("")
 }

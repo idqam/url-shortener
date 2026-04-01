@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
+	"slices"
 	"time"
 	"url-shortener-go-backend/internal/model"
 	"url-shortener-go-backend/internal/utils"
@@ -38,25 +39,25 @@ func (a *AnalyticsRepositoryImpl) SaveAnalytics(ctx context.Context, userID, url
 		Execute()
 
 	if err != nil {
-		log.Printf("[SaveAnalytics] Insert failed: %v", err)
+		slog.Error("analytics insert failed", "error", err)
 		return fmt.Errorf("failed to save analytics: %w", err)
 	}
 
 	if len(resp) == 0 {
-		log.Printf("[SaveAnalytics] Empty insert response for url_id=%s", urlID)
+		slog.Warn("analytics insert returned empty response", "url_id", urlID)
 	} else {
 		userIDPart := "anonymous"
 		if userID != "" {
 			userIDPart = userID
 		}
-		log.Printf("[SaveAnalytics] Successfully saved analytics for url_id=%s, user_id=%s", urlID, userIDPart)
+		slog.Info("analytics saved", "url_id", urlID, "user_id", userIDPart)
 	}
 
 	return nil
 }
 
 func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, userID string) (*model.UserAnalyticsSummary, error) {
-	log.Printf("[GetUserAnalyticsSummary] Creating summary with CALCULATED stats for user: %s", userID)
+	slog.Info("creating analytics summary", "user_id", userID)
 
 	summary := &model.UserAnalyticsSummary{
 		TopURLs:         []model.URLClickStats{},
@@ -67,7 +68,7 @@ func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, u
 
 	topURLs, err := a.GetUserTopURLs(ctx, userID, 100)
 	if err != nil {
-		log.Printf("[GetUserAnalyticsSummary] Failed to get top URLs: %v", err)
+		slog.Error("failed to get top urls for summary", "user_id", userID, "error", err)
 		summary.TopURLs = []model.URLClickStats{}
 		summary.TotalURLs = 0
 		summary.TotalClicks = 0
@@ -91,13 +92,12 @@ func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, u
 			summary.TopURLs = topURLs
 		}
 
-		log.Printf("[GetUserAnalyticsSummary] CALCULATED stats: URLs=%d, TotalClicks=%d, Avg=%.1f",
-			summary.TotalURLs, summary.TotalClicks, summary.AverageClicks)
+		slog.Info("calculated url stats", "user_id", userID, "total_urls", summary.TotalURLs, "total_clicks", summary.TotalClicks)
 	}
 
 	dailyTrend, err := a.GetUserDailyClicks(ctx, userID, 2)
 	if err != nil || len(dailyTrend) == 0 {
-		log.Printf("[GetUserAnalyticsSummary] Could not get daily trend for today/yesterday calculation")
+		slog.Warn("could not get daily trend for today/yesterday", "user_id", userID)
 		summary.ClicksToday = 0
 		summary.ClicksYesterday = 0
 	} else {
@@ -109,45 +109,41 @@ func (a *AnalyticsRepositoryImpl) GetUserAnalyticsSummary(ctx context.Context, u
 
 		for _, day := range dailyTrend {
 			switch day.Date {
-case today:
+			case today:
 				summary.ClicksToday = day.Clicks
 			case yesterday:
 				summary.ClicksYesterday = day.Clicks
 			}
 		}
 
-		log.Printf("[GetUserAnalyticsSummary] Daily clicks: Today=%d, Yesterday=%d",
-			summary.ClicksToday, summary.ClicksYesterday)
+		slog.Info("daily clicks calculated", "user_id", userID, "today", summary.ClicksToday, "yesterday", summary.ClicksYesterday)
 	}
 
 	topReferrers, err := a.GetUserTopReferrers(ctx, userID, 5)
 	if err != nil {
-		log.Printf("[GetUserAnalyticsSummary] Failed to get top referrers: %v", err)
+		slog.Error("failed to get top referrers for summary", "user_id", userID, "error", err)
 		summary.TopReferrers = []model.ReferrerStats{}
 	} else {
 		summary.TopReferrers = topReferrers
-		log.Printf("[GetUserAnalyticsSummary] Got %d top referrers", len(topReferrers))
 	}
 
 	deviceBreakdown, err := a.GetUserDeviceBreakdown(ctx, userID)
 	if err != nil {
-		log.Printf("[GetUserAnalyticsSummary] Failed to get device breakdown: %v", err)
+		slog.Error("failed to get device breakdown for summary", "user_id", userID, "error", err)
 		summary.DeviceBreakdown = []model.DeviceStats{}
 	} else {
 		summary.DeviceBreakdown = deviceBreakdown
-		log.Printf("[GetUserAnalyticsSummary] Got %d device types", len(deviceBreakdown))
 	}
 
 	dailyTrend, err = a.GetUserDailyClicks(ctx, userID, 7)
 	if err != nil {
-		log.Printf("[GetUserAnalyticsSummary] Failed to get daily trend: %v", err)
+		slog.Error("failed to get daily trend for summary", "user_id", userID, "error", err)
 		summary.DailyClickTrend = []model.DailyClickStats{}
 	} else {
 		summary.DailyClickTrend = dailyTrend
-		log.Printf("[GetUserAnalyticsSummary] Got %d days of trend data", len(dailyTrend))
 	}
 
-	log.Printf("[GetUserAnalyticsSummary] ✅ Successfully created CALCULATED summary for user %s", userID)
+	slog.Info("analytics summary created", "user_id", userID)
 	return summary, nil
 }
 
@@ -176,7 +172,7 @@ func (a *AnalyticsRepositoryImpl) GetUserStats(ctx context.Context, userID strin
 	}
 
 	today := time.Now().Format("2006-01-02")
-	resp, todayCount, err := a.Client.
+	_, todayCount, err := a.Client.
 		From("analytics").
 		Select("id", "exact", true).
 		Eq("user_id", userID).
@@ -184,7 +180,7 @@ func (a *AnalyticsRepositoryImpl) GetUserStats(ctx context.Context, userID strin
 		Execute()
 
 	if err != nil {
-		log.Printf("[GetUserStats] Failed to get today's clicks: %v", err)
+		slog.Error("failed to get today's clicks", "user_id", userID, "error", err)
 		clicksToday = 0
 	} else {
 		clicksToday = int64(todayCount)
@@ -192,7 +188,7 @@ func (a *AnalyticsRepositoryImpl) GetUserStats(ctx context.Context, userID strin
 
 	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	yesterdayEnd := today
-	resp, yesterdayCount, err := a.Client.
+	_, yesterdayCount, err := a.Client.
 		From("analytics").
 		Select("id", "exact", true).
 		Eq("user_id", userID).
@@ -201,7 +197,7 @@ func (a *AnalyticsRepositoryImpl) GetUserStats(ctx context.Context, userID strin
 		Execute()
 
 	if err != nil {
-		log.Printf("[GetUserStats] Failed to get yesterday's clicks: %v", err)
+		slog.Error("failed to get yesterday's clicks", "user_id", userID, "error", err)
 		clicksYesterday = 0
 	} else {
 		clicksYesterday = int64(yesterdayCount)
@@ -220,19 +216,23 @@ func (a *AnalyticsRepositoryImpl) GetUserTopURLs(ctx context.Context, userID str
 		Execute()
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch top URLs: %w", err)
+		return []model.URLClickStats{}, fmt.Errorf("failed to fetch top URLs: %w", err)
 	}
 
 	var urls []model.URLClickStats
 	if err := json.Unmarshal(resp, &urls); err != nil {
-		return nil, fmt.Errorf("failed to decode top URLs: %w", err)
+		return []model.URLClickStats{}, fmt.Errorf("failed to decode top URLs: %w", err)
+	}
+
+	if urls == nil {
+		urls = []model.URLClickStats{}
 	}
 
 	return urls, nil
 }
 
 func fillMissingDays(data []model.DailyClickStats, days int) []model.DailyClickStats {
-today := time.Now().UTC()
+	today := time.Now().UTC()
 	clicksByDate := make(map[string]int64)
 	for _, d := range data {
 		clicksByDate[d.Date] = d.Clicks
@@ -240,7 +240,7 @@ today := time.Now().UTC()
 
 	result := make([]model.DailyClickStats, days)
 	for i := 0; i < days; i++ {
-		date := today.AddDate(0, 0, -(days - 1 - i)).Format("2006-01-02")
+		date := today.AddDate(0, 0, -(days-1-i)).Format("2006-01-02")
 		result[i] = model.DailyClickStats{
 			Date:   date,
 			Clicks: clicksByDate[date],
@@ -248,6 +248,7 @@ today := time.Now().UTC()
 	}
 	return result
 }
+
 func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID string, days int) ([]model.DailyClickStats, error) {
 	rawJSON := a.Client.Rpc("get_user_daily_clicks", "", map[string]any{
 		"p_days":    days,
@@ -260,7 +261,7 @@ func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID
 
 	var stats []model.DailyClickStats
 	if err := json.Unmarshal([]byte(rawJSON), &stats); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal daily clicks: %w", err)
+		return []model.DailyClickStats{}, fmt.Errorf("failed to unmarshal daily clicks: %w", err)
 	}
 
 	stats = fillMissingDays(stats, days)
@@ -268,9 +269,7 @@ func (a *AnalyticsRepositoryImpl) GetUserDailyClicks(ctx context.Context, userID
 	return stats, nil
 }
 
-
 func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userID string, limit int) ([]model.ReferrerStats, error) {
-
 	resp, _, err := a.Client.
 		From("analytics").
 		Select("referrer", "exact", false).
@@ -280,11 +279,11 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		Execute()
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch referrer data: %w", err)
+		return []model.ReferrerStats{}, fmt.Errorf("failed to fetch referrer data: %w", err)
 	}
 
 	if len(resp) == 0 || string(resp) == "[]" || string(resp) == "" {
-		log.Printf("[GetUserTopReferrers] No referrer data found for user %s", userID)
+		slog.Info("no referrer data found", "user_id", userID)
 		return []model.ReferrerStats{}, nil
 	}
 
@@ -292,7 +291,7 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		Referrer string `json:"referrer"`
 	}
 	if err := json.Unmarshal(resp, &analytics); err != nil {
-		log.Printf("[GetUserTopReferrers] Failed to decode referrer data: %v", err)
+		slog.Error("failed to decode referrer data", "user_id", userID, "error", err)
 		return []model.ReferrerStats{}, nil
 	}
 
@@ -303,7 +302,7 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		}
 	}
 
-	var referrers []model.ReferrerStats
+	referrers := make([]model.ReferrerStats, 0, len(referrerCounts))
 	for referrer, count := range referrerCounts {
 		referrers = append(referrers, model.ReferrerStats{
 			Referrer: referrer,
@@ -311,21 +310,21 @@ func (a *AnalyticsRepositoryImpl) GetUserTopReferrers(ctx context.Context, userI
 		})
 	}
 
-	if len(referrers) > 1 {
-		for i := 0; i < len(referrers)-1; i++ {
-			for j := i + 1; j < len(referrers); j++ {
-				if referrers[i].Clicks < referrers[j].Clicks {
-					referrers[i], referrers[j] = referrers[j], referrers[i]
-				}
-			}
+	slices.SortFunc(referrers, func(a, b model.ReferrerStats) int {
+		if a.Clicks > b.Clicks {
+			return -1
 		}
-	}
+		if a.Clicks < b.Clicks {
+			return 1
+		}
+		return 0
+	})
 
 	if len(referrers) > limit {
 		referrers = referrers[:limit]
 	}
 
-	log.Printf("[GetUserTopReferrers] Found %d referrers for user %s", len(referrers), userID)
+	slog.Info("referrers found", "user_id", userID, "count", len(referrers))
 	return referrers, nil
 }
 
@@ -336,7 +335,7 @@ func (a *AnalyticsRepositoryImpl) GetUserDeviceBreakdown(ctx context.Context, us
 			'desktop' as device_type, SUM(desktop_clicks) as clicks
 			UNION ALL
 			SELECT 'mobile' as device_type, SUM(mobile_clicks) as clicks
-			UNION ALL  
+			UNION ALL
 			SELECT 'tablet' as device_type, SUM(tablet_clicks) as clicks
 			UNION ALL
 			SELECT 'unknown' as device_type, SUM(unknown_clicks) as clicks
@@ -354,6 +353,10 @@ func (a *AnalyticsRepositoryImpl) GetUserDeviceBreakdown(ctx context.Context, us
 		return a.getUserDeviceBreakdownFromRaw(ctx, userID)
 	}
 
+	if devices == nil {
+		devices = []model.DeviceStats{}
+	}
+
 	return devices, nil
 }
 
@@ -365,14 +368,14 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 		Execute()
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch device data: %w", err)
+		return []model.DeviceStats{}, fmt.Errorf("failed to fetch device data: %w", err)
 	}
 
 	var analytics []struct {
 		DeviceType *string `json:"device_type"`
 	}
 	if err := json.Unmarshal(resp, &analytics); err != nil {
-		return nil, fmt.Errorf("failed to decode device data: %w", err)
+		return []model.DeviceStats{}, fmt.Errorf("failed to decode device data: %w", err)
 	}
 
 	deviceCounts := make(map[string]int64)
@@ -384,7 +387,7 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 		deviceCounts[deviceType]++
 	}
 
-	var devices []model.DeviceStats
+	devices := make([]model.DeviceStats, 0, len(deviceCounts))
 	for deviceType, count := range deviceCounts {
 		devices = append(devices, model.DeviceStats{
 			DeviceType: deviceType,
@@ -392,15 +395,15 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 		})
 	}
 
-	if len(devices) > 1 {
-		for i := 0; i < len(devices)-1; i++ {
-			for j := i + 1; j < len(devices); j++ {
-				if devices[i].Clicks < devices[j].Clicks {
-					devices[i], devices[j] = devices[j], devices[i]
-				}
-			}
+	slices.SortFunc(devices, func(a, b model.DeviceStats) int {
+		if a.Clicks > b.Clicks {
+			return -1
 		}
-	}
+		if a.Clicks < b.Clicks {
+			return 1
+		}
+		return 0
+	})
 
 	return devices, nil
 }
@@ -408,10 +411,10 @@ func (a *AnalyticsRepositoryImpl) getUserDeviceBreakdownFromRaw(ctx context.Cont
 func (a *AnalyticsRepositoryImpl) AggregateYesterdayAnalytics(ctx context.Context) error {
 	err := a.Client.Rpc("update_daily_analytics", "", map[string]any{})
 	if err != "" {
-		log.Printf("[AggregateYesterdayAnalytics] RPC failed: %s", err)
+		slog.Error("rpc update_daily_analytics failed", "error", err)
 		return fmt.Errorf("failed to aggregate analytics: %s", err)
 	}
 
-	log.Printf("[AggregateYesterdayAnalytics] Successfully aggregated yesterday's analytics")
+	slog.Info("yesterday analytics aggregated successfully")
 	return nil
 }

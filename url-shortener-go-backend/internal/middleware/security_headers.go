@@ -6,7 +6,7 @@ import (
 	"github.com/unrolled/secure"
 )
 
-func SecurityHeaders() func(http.Handler) http.Handler {
+func SecurityHeaders(isDev bool) func(http.Handler) http.Handler {
 	secureMiddleware := secure.New(secure.Options{
 		FrameDeny:             true,
 		ContentTypeNosniff:    true,
@@ -20,7 +20,7 @@ func SecurityHeaders() func(http.Handler) http.Handler {
 
 		CustomFrameOptionsValue: "DENY",
 
-		IsDevelopment: true, // Set based on environment
+		IsDevelopment: isDev,
 	})
 
 	return func(next http.Handler) http.Handler {

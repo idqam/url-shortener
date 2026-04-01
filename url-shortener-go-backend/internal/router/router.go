@@ -2,12 +2,18 @@ package router
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
+	"url-shortener-go-backend/internal/cache"
+	"url-shortener-go-backend/internal/config"
 	"url-shortener-go-backend/internal/handler"
+	"url-shortener-go-backend/internal/metrics"
 	"url-shortener-go-backend/internal/middleware"
+	"url-shortener-go-backend/internal/repository"
+	"url-shortener-go-backend/internal/utils"
 )
 
 type APIServer struct {
@@ -18,12 +24,18 @@ type APIServer struct {
 	analyticsHandler *handler.AnalyticsHandler
 	middlewares      []func(http.Handler) http.Handler
 	authMiddleware   func(http.Handler) http.Handler
+	cache            cache.Cache
+	supabaseRepo     *repository.SupabaseRepository
+	cfg              *config.Config
 }
 
 func NewAPIServer(
 	addr string,
+	cfg *config.Config,
 	urlHandler *handler.URLHandler,
 	analyticsHandler *handler.AnalyticsHandler,
+	c cache.Cache,
+	supabaseRepo *repository.SupabaseRepository,
 	authMw func(http.Handler) http.Handler,
 	mws ...func(http.Handler) http.Handler,
 ) *APIServer {
@@ -35,11 +47,21 @@ func NewAPIServer(
 		analyticsHandler: analyticsHandler,
 		middlewares:      mws,
 		authMiddleware:   authMw,
+		cache:            c,
+		supabaseRepo:     supabaseRepo,
+		cfg:              cfg,
 	}
 
 	s.routes()
 
-	allMiddlewares := append(s.middlewares, s.cors(), middleware.SecurityHeaders())
+	isDev := cfg.Environment == "development"
+	allMiddlewares := append(s.middlewares,
+		middleware.RequestIDMiddleware,
+		middleware.MetricsMiddleware,
+		middleware.TracingMiddleware,
+		s.cors(),
+		middleware.SecurityHeaders(isDev),
+	)
 
 	s.server = &http.Server{
 		Addr:         s.address,
@@ -49,32 +71,65 @@ func NewAPIServer(
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("[NewAPIServer] Initialized with address: %s", s.address)
+	slog.Info("api server initialized", "address", s.address)
 	return s
 }
 
 func (s *APIServer) Run() error {
-	log.Printf("[Run] HTTP server listening on %s", s.address)
+	slog.Info("http server listening", "address", s.address)
 	return s.server.ListenAndServe()
 }
 
 func (s *APIServer) Shutdown(ctx context.Context) error {
-	log.Println("[Shutdown] Shutting down HTTP server...")
+	slog.Info("shutting down http server")
 	return s.server.Shutdown(ctx)
 }
 
 func (s *APIServer) routes() {
-	log.Println("[routes] Registering HTTP routes")
+	slog.Info("registering http routes")
 
 	s.router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[HealthCheck] %s %s", r.Method, r.URL.Path)
-		handler.RespondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		slog.Info("health check", "method", r.Method, "path", r.URL.Path)
+		ctx := r.Context()
+
+		redisStatus := "connected"
+		if s.cache != nil {
+			if err := s.cache.Ping(ctx); err != nil {
+				redisStatus = "disconnected"
+				slog.Warn("redis ping failed during health check", "error", err)
+			}
+		} else {
+			redisStatus = "disabled"
+		}
+
+		dbStatus := "connected"
+		if s.supabaseRepo != nil {
+			_, _, err := s.supabaseRepo.Client.From("urls").Select("id", "exact", false).Limit(0, "").Execute()
+			if err != nil {
+				dbStatus = "disconnected"
+				slog.Warn("supabase ping failed during health check", "error", err)
+			}
+		}
+
+		overallStatus := "ok"
+		if redisStatus == "disconnected" || dbStatus == "disconnected" {
+			overallStatus = "degraded"
+		}
+
+		utils.RespondJSON(w, http.StatusOK, map[string]string{
+			"status":   overallStatus,
+			"redis":    redisStatus,
+			"database": dbStatus,
+			"version":  s.cfg.Version,
+		}, "")
 	})
+
+	s.router.Handle("/metrics", metrics.Handler())
 
 	s.router.Handle("/api/urls", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			s.urlHandler.HandleShorten()(w, r) // Public shortening
+			s.urlHandler.HandleShorten()(w, r)
 		case http.MethodGet:
 			protected := s.authMiddleware(http.HandlerFunc(s.urlHandler.HandleGetUserUrls()))
 			protected.ServeHTTP(w, r)
@@ -84,27 +139,25 @@ func (s *APIServer) routes() {
 	}))
 
 	s.router.HandleFunc("/api/urls/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[HandleGetUrlByShortCode] %s %s", r.Method, r.URL.Path)
+		slog.Info("get url by shortcode", "method", r.Method, "path", r.URL.Path)
 		s.urlHandler.HandleGetUrlByShortCode()(w, r)
 	})
 
 	s.registerAnalyticsRoutes()
 
 	s.router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[ShortCodeHandler] %s %s", r.Method, r.URL.Path)
+		slog.Info("shortcode handler", "method", r.Method, "path", r.URL.Path)
 		s.urlHandler.ShortCodeHandler()(w, r)
 	})
 }
 
 func (s *APIServer) registerAnalyticsRoutes() {
-	log.Println("[registerAnalyticsRoutes] Setting up analytics endpoints")
+	slog.Info("registering analytics routes")
 
 	s.router.Handle("/api/analytics/dashboard", s.authMiddleware(
 		http.HandlerFunc(s.analyticsHandler.HandleGetDashboard()),
 	))
 
-
-	//query param
 	s.router.Handle("/api/analytics/urls", s.authMiddleware(
 		http.HandlerFunc(s.analyticsHandler.HandleGetTopURLs()),
 	))
@@ -117,7 +170,6 @@ func (s *APIServer) registerAnalyticsRoutes() {
 		http.HandlerFunc(s.analyticsHandler.HandleGetDeviceBreakdown()),
 	))
 
-	//query param
 	s.router.Handle("/api/analytics/trend", s.authMiddleware(
 		http.HandlerFunc(s.analyticsHandler.HandleGetDailyTrend()),
 	))
@@ -126,7 +178,7 @@ func (s *APIServer) registerAnalyticsRoutes() {
 		http.HandlerFunc(s.analyticsHandler.HandleRecordAnalytics()),
 	))
 
-	log.Println("[registerAnalyticsRoutes] Analytics routes registered successfully")
+	slog.Info("analytics routes registered")
 }
 
 func (s *APIServer) withMiddleware(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
@@ -137,18 +189,26 @@ func (s *APIServer) withMiddleware(h http.Handler, mws ...func(http.Handler) htt
 }
 
 func (s *APIServer) cors() func(http.Handler) http.Handler {
+	allowedOrigins := s.cfg.AllowedOrigins
+	allowedSet := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		allowedSet[strings.TrimRight(o, "/")] = struct{}{}
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			log.Printf("[CORS] %s request from origin: %s", r.Method, origin)
+			slog.Debug("cors check", "method", r.Method, "origin", origin)
 
-			w.Header().Set("Access-Control-Allow-Origin", "https://url-shortener-nu-two-32.vercel.app")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			if _, ok := allowedSet[strings.TrimRight(origin, "/")]; ok {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			}
 
 			if r.Method == http.MethodOptions {
-				log.Printf("[CORS] Preflight request handled")
+				slog.Debug("cors preflight handled")
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

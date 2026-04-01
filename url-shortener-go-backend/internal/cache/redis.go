@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 	"crypto/tls"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -25,9 +25,9 @@ func NewRedisCache(addr string, password string, db int, defaultTTL time.Duratio
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Printf("[ERROR] Redis ping failed: %v", err)
+		slog.Error("redis ping failed", "error", err)
 	} else {
-		log.Println("[INFO] Redis connected successfully")
+		slog.Info("redis connected successfully")
 	}
 	return &RedisCache{client: rdb, ttl: defaultTTL}
 }
@@ -35,14 +35,14 @@ func NewRedisCache(addr string, password string, db int, defaultTTL time.Duratio
 func (c *RedisCache) Get(ctx context.Context, key string) (string, bool, error) {
 	val, err := c.client.Get(ctx, key).Result()
 	if err == redis.Nil {
-		log.Printf("[Redis] MISS for key: %s", key)
+		slog.Debug("redis cache miss", "key", key)
 		return "", false, nil
 	}
 	if err != nil {
-		log.Printf("[Redis] ERROR: %v", err)
+		slog.Error("redis get error", "error", err)
 		return "", false, err
 	}
-	log.Printf("[Redis] HIT for key: %s", key)
+	slog.Debug("redis cache hit", "key", key)
 	return val, true, nil
 }
 
@@ -63,4 +63,16 @@ func (c *RedisCache) Expire(ctx context.Context, key string, ttl time.Duration) 
 
 func (c *RedisCache) TTL(ctx context.Context, key string) (time.Duration, error) {
 	return c.client.TTL(ctx, key).Result()
+}
+
+func (c *RedisCache) Delete(ctx context.Context, key string) error {
+	return c.client.Del(ctx, key).Err()
+}
+
+func (c *RedisCache) Ping(ctx context.Context) error {
+	return c.client.Ping(ctx).Err()
+}
+
+func (c *RedisCache) Close() error {
+	return c.client.Close()
 }

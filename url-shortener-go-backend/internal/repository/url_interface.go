@@ -10,5 +10,4 @@ type URLRepository interface {
 	GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error)
 	GetUserUrls(ctx context.Context, userID string) ([]model.URL, error)
 	IncrementClickCount(ctx context.Context, shortcode string) error
-	SaveAnalytics(ctx context.Context, userID, urlID, referrer, deviceType string) error
 }

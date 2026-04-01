@@ -6,12 +6,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"time"
 )
 
-func GenerateCode(urlStr string, length int) (string, error) {
+func GenerateCode(urlStr string, length int, salt string) (string, error) {
 	if length < 6 || length > 12 {
 		return "", fmt.Errorf("length must be between 6 and 12")
 	}
@@ -20,13 +19,12 @@ func GenerateCode(urlStr string, length int) (string, error) {
 		return "", fmt.Errorf("urlStr cannot be empty")
 	}
 
-	salt := os.Getenv("SALT")
 	if salt == "" {
-		return "", fmt.Errorf("missing SALT environment variable")
+		return "", fmt.Errorf("missing salt")
 	}
 
 	if len(salt) < 32 {
-		return "", fmt.Errorf("SALT must be at least 32 characters long")
+		return "", fmt.Errorf("salt must be at least 32 characters long")
 	}
 
 	randomBytes := make([]byte, 16)

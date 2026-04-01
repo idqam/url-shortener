@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"url-shortener-go-backend/internal/model"
@@ -13,10 +13,11 @@ import (
 
 type URLRepositoryImpl struct {
 	*SupabaseRepository
+	shortDomain string
 }
 
-func NewURLRepository(baseRepo *SupabaseRepository) URLRepository {
-	return &URLRepositoryImpl{baseRepo}
+func NewURLRepository(baseRepo *SupabaseRepository, shortDomain string) URLRepository {
+	return &URLRepositoryImpl{SupabaseRepository: baseRepo, shortDomain: shortDomain}
 }
 
 func (u *URLRepositoryImpl) GetURLByShortCode(ctx context.Context, shortcode string) (*model.URL, error) {
@@ -28,7 +29,15 @@ func (u *URLRepositoryImpl) GetURLByShortCode(ctx context.Context, shortcode str
 		Execute()
 
 	if err != nil {
+		errStr := strings.ToLower(err.Error())
+		if strings.Contains(errStr, "pgrst116") || strings.Contains(errStr, "no rows") || strings.Contains(errStr, "json object requested") {
+			return nil, utils.ErrNotFound
+		}
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
+	}
+
+	if len(resp) == 0 || string(resp) == "null" {
+		return nil, utils.ErrNotFound
 	}
 
 	var url model.URL
@@ -36,7 +45,7 @@ func (u *URLRepositoryImpl) GetURLByShortCode(ctx context.Context, shortcode str
 		return nil, fmt.Errorf("failed to decode URL response: %w", err)
 	}
 
-	url.PopulateShortURL()
+	url.PopulateShortURL(u.shortDomain)
 
 	return &url, nil
 }
@@ -57,8 +66,12 @@ func (u *URLRepositoryImpl) GetUserUrls(ctx context.Context, userID string) ([]m
 		return nil, fmt.Errorf("failed to decode URLs: %w", err)
 	}
 
+	if urls == nil {
+		urls = []model.URL{}
+	}
+
 	for i := range urls {
-		urls[i].PopulateShortURL()
+		urls[i].PopulateShortURL(u.shortDomain)
 	}
 
 	return urls, nil
@@ -70,7 +83,7 @@ func (u *URLRepositoryImpl) IncrementClickCount(ctx context.Context, shortcode s
 	})
 
 	if err != "" {
-		log.Printf("[IncrementClickCount] RPC failed for shortcode=%s: %s", shortcode, err)
+		slog.Error("rpc increment_click_count failed", "shortcode", shortcode, "error", err)
 		return fmt.Errorf("failed to increment click count: %s", err)
 	}
 
@@ -95,20 +108,17 @@ func (u *URLRepositoryImpl) SaveURL(ctx context.Context, url *model.URL) error {
 		Execute()
 
 	if err != nil {
-		log.Printf("[SaveURL] Insert failed: %v", err)
+		slog.Error("url insert failed", "error", err)
 		return fmt.Errorf("supabase insert failed: %w", err)
 	}
 
 	if len(resp) == 0 {
-		log.Printf("[SaveURL] Empty insert response")
+		slog.Error("url insert returned empty response")
 		return fmt.Errorf("failed to save URL (empty response)")
 	}
 
 	var inserted []model.URL
 	if err := json.Unmarshal(resp, &inserted); err != nil {
-
-		log.Printf("[SaveURL] Failed to decode insert response: %v", err)
-
 		var errResp struct {
 			Message string `json:"message"`
 			Code    string `json:"code"`
@@ -118,7 +128,7 @@ func (u *URLRepositoryImpl) SaveURL(ctx context.Context, url *model.URL) error {
 		if json.Unmarshal(resp, &errResp) == nil && errResp.Message != "" {
 			msg := strings.ToLower(errResp.Message)
 			if strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique constraint") {
-				log.Printf("[SaveURL] Unique constraint violation: %s", errResp.Message)
+				slog.Warn("unique constraint violation on url insert", "message", errResp.Message)
 				return ErrUniqueViolation
 			}
 			return fmt.Errorf("supabase error: %s", errResp.Message)
@@ -128,48 +138,13 @@ func (u *URLRepositoryImpl) SaveURL(ctx context.Context, url *model.URL) error {
 	}
 
 	if len(inserted) == 0 {
-		log.Printf("[SaveURL] Empty insert response")
+		slog.Error("url insert returned no rows")
 		return fmt.Errorf("no URL returned after insert")
 	}
 
 	*url = inserted[0]
 
-	url.PopulateShortURL()
-	log.Printf("[SaveURL] Insert successful: id=%s, short_code=%s", url.ID, url.ShortCode)
-	return nil
-}
-
-func (u *URLRepositoryImpl) SaveAnalytics(ctx context.Context, userID, urlID, referrer, deviceType string) error {
-	data := map[string]interface{}{
-		"url_id":      urlID,
-		"referrer":    referrer,
-		"device_type": deviceType,
-		"clicked_at":  utils.NowUTC(),
-	}
-
-	if userID != "" {
-		data["user_id"] = userID
-	}
-
-	resp, _, err := u.Client.
-		From("analytics").
-		Insert(data, false, "", "", "").
-		Execute()
-
-	if err != nil {
-		log.Printf("[SaveAnalytics] Insert failed: %v", err)
-		return fmt.Errorf("failed to save analytics: %w", err)
-	}
-
-	if len(resp) == 0 {
-		log.Printf("[SaveAnalytics] Empty insert response for url_id=%s", urlID)
-	} else {
-		userIDPart := "anonymous"
-		if userID != "" {
-			userIDPart = userID
-		}
-		log.Printf("[SaveAnalytics] Successfully saved analytics for url_id=%s, user_id=%s", urlID, userIDPart)
-	}
-
+	url.PopulateShortURL(u.shortDomain)
+	slog.Info("url insert successful", "id", url.ID, "short_code", url.ShortCode)
 	return nil
 }

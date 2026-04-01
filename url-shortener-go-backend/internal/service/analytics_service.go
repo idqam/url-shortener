@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"url-shortener-go-backend/internal/cache"
-	"url-shortener-go-backend/internal/handler/dto"
-	"url-shortener-go-backend/internal/handler/mapper"
+	"url-shortener-go-backend/internal/metrics"
 	"url-shortener-go-backend/internal/model"
 	"url-shortener-go-backend/internal/repository"
 )
@@ -17,12 +16,14 @@ import (
 type AnalyticsServiceImpl struct {
 	analyticsRepo repository.AnalyticsRepository
 	cache         cache.Cache
+	salt          string
 }
 
-func NewAnalyticsService(analyticsRepo repository.AnalyticsRepository, cache cache.Cache) AnalyticsService {
+func NewAnalyticsService(analyticsRepo repository.AnalyticsRepository, c cache.Cache, salt string) AnalyticsService {
 	return &AnalyticsServiceImpl{
 		analyticsRepo: analyticsRepo,
-		cache:         cache,
+		cache:         c,
+		salt:          salt,
 	}
 }
 
@@ -42,33 +43,31 @@ func NormalizeSummary(summary *model.UserAnalyticsSummary) {
 }
 
 func (s *AnalyticsServiceImpl) GetUserDashboard(ctx context.Context, userID string) (*model.UserAnalyticsSummary, error) {
-	cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
+	cacheKey := cache.KeyUserAnalytics(s.salt, userID, time.Now().AddDate(0, 0, -7), time.Now())
 
 	if val, ok, err := s.cache.Get(ctx, cacheKey); err == nil && ok {
-		var cached dto.AnalyticsDashboardResponse
+		var cached model.UserAnalyticsSummary
 		if err := json.Unmarshal([]byte(val), &cached); err == nil {
-			log.Printf("[GetUserDashboard] Cache HIT for user: %s", userID)
-			summary := mapper.FromAnalyticsDashboardResponse(cached)
-			NormalizeSummary(summary)
-			return summary, nil
+			slog.Info("dashboard cache hit", "user_id", userID)
+			NormalizeSummary(&cached)
+			return &cached, nil
 		}
 	}
 
-	log.Printf("[GetUserDashboard] Cache MISS for user: %s", userID)
+	slog.Info("dashboard cache miss", "user_id", userID)
 	summary, err := s.analyticsRepo.GetUserAnalyticsSummary(ctx, userID)
 	if summary != nil {
 		NormalizeSummary(summary)
 	}
 
 	if err != nil {
-		log.Printf("[GetUserDashboard] Failed to get analytics summary for user %s: %v", userID, err)
+		slog.Error("failed to get analytics summary", "user_id", userID, "error", err)
 		return nil, fmt.Errorf("failed to get user dashboard: %w", err)
 	}
 
-	mapped := mapper.ToAnalyticsDashboardResponse(*summary)
-	if jsonVal, err := json.Marshal(mapped); err == nil {
+	if jsonVal, err := json.Marshal(summary); err == nil {
 		_ = s.cache.Set(ctx, cacheKey, string(jsonVal), time.Hour)
-		log.Printf("[GetUserDashboard] Cached mapped DTO for user: %s", userID)
+		slog.Info("dashboard cached", "user_id", userID)
 	}
 
 	return summary, nil
@@ -86,7 +85,7 @@ func (s *AnalyticsServiceImpl) GetUserTopURLs(ctx context.Context, userID string
 
 	urls, err := s.analyticsRepo.GetUserTopURLs(ctx, userID, limit)
 	if err != nil {
-		log.Printf("[GetUserTopURLs] Failed for user %s: %v", userID, err)
+		slog.Error("failed to get top urls", "user_id", userID, "error", err)
 		return nil, fmt.Errorf("failed to get top URLs: %w", err)
 	}
 
@@ -109,7 +108,7 @@ func (s *AnalyticsServiceImpl) GetUserDailyTrend(ctx context.Context, userID str
 
 	trend, err := s.analyticsRepo.GetUserDailyClicks(ctx, userID, days)
 	if err != nil {
-		log.Printf("[GetUserDailyTrend] Failed for user %s: %v", userID, err)
+		slog.Error("failed to get daily trend", "user_id", userID, "error", err)
 		return []model.DailyClickStats{}, nil
 	}
 
@@ -136,7 +135,7 @@ func (s *AnalyticsServiceImpl) GetUserTopReferrers(ctx context.Context, userID s
 
 	referrers, err := s.analyticsRepo.GetUserTopReferrers(ctx, userID, limit)
 	if err != nil {
-		log.Printf("[GetUserTopReferrers] Failed for user %s: %v", userID, err)
+		slog.Error("failed to get top referrers", "user_id", userID, "error", err)
 		return nil, fmt.Errorf("failed to get top referrers: %w", err)
 	}
 
@@ -159,7 +158,7 @@ func (s *AnalyticsServiceImpl) GetUserDeviceBreakdown(ctx context.Context, userI
 
 	devices, err := s.analyticsRepo.GetUserDeviceBreakdown(ctx, userID)
 	if err != nil {
-		log.Printf("[GetUserDeviceBreakdown] Failed for user %s: %v", userID, err)
+		slog.Error("failed to get device breakdown", "user_id", userID, "error", err)
 		return nil, fmt.Errorf("failed to get device breakdown: %w", err)
 	}
 
@@ -171,13 +170,12 @@ func (s *AnalyticsServiceImpl) GetUserDeviceBreakdown(ctx context.Context, userI
 }
 
 func (s *AnalyticsServiceImpl) RecordAnalytics(ctx context.Context, userID, urlID, referrer, deviceType string) error {
-
 	go func() {
 		bgCtx := context.Background()
 		if err := s.analyticsRepo.SaveAnalytics(bgCtx, userID, urlID, referrer, deviceType); err != nil {
-			log.Printf("[RecordAnalytics] Failed to save analytics: userID=%s, urlID=%s, error=%v", userID, urlID, err)
+			slog.Error("failed to save analytics", "user_id", userID, "url_id", urlID, "error", err)
 		} else {
-
+			metrics.AnalyticsRecordsTotal.Inc()
 			s.invalidateUserCaches(bgCtx, userID)
 		}
 	}()
@@ -185,34 +183,30 @@ func (s *AnalyticsServiceImpl) RecordAnalytics(ctx context.Context, userID, urlI
 	return nil
 }
 
-// Implement cron scheduler?
 func (s *AnalyticsServiceImpl) ProcessDailyAnalytics(ctx context.Context) error {
-	log.Println("[ProcessDailyAnalytics] Starting daily analytics aggregation")
+	slog.Info("starting daily analytics aggregation")
 
 	if err := s.analyticsRepo.AggregateYesterdayAnalytics(ctx); err != nil {
-		log.Printf("[ProcessDailyAnalytics] Failed to aggregate analytics: %v", err)
+		slog.Error("failed to aggregate analytics", "error", err)
 		return fmt.Errorf("failed to process daily analytics: %w", err)
 	}
 
-	log.Println("[ProcessDailyAnalytics] Successfully completed daily analytics aggregation")
+	slog.Info("daily analytics aggregation completed")
 	return nil
 }
 
-// TODO: If this becomes a real service then properly implement this, Redis pattern-based deletion and proper cache invalidation
 func (s *AnalyticsServiceImpl) invalidateUserCaches(ctx context.Context, userID string) {
-
-	patterns := []string{
-		fmt.Sprintf("user_top_urls:%s:*", userID),
-		fmt.Sprintf("user_daily_trend:%s:*", userID),
-		fmt.Sprintf("user_top_referrers:%s:*", userID),
+	keysToDelete := []string{
+		fmt.Sprintf("user_top_urls:%s:10", userID),
+		fmt.Sprintf("user_daily_trend:%s:7", userID),
+		fmt.Sprintf("user_top_referrers:%s:5", userID),
 		fmt.Sprintf("user_device_breakdown:%s", userID),
+		cache.KeyUserAnalytics(s.salt, userID, time.Now().AddDate(0, 0, -7), time.Now()),
 	}
 
-	for _, pattern := range patterns {
-		log.Printf("[InvalidateCache] Pattern: %s", pattern)
+	for _, key := range keysToDelete {
+		if err := s.cache.Delete(ctx, key); err != nil {
+			slog.Warn("failed to delete cache key", "key", key, "error", err)
+		}
 	}
-
-	cacheKey := cache.KeyUserAnalytics(userID, time.Now().AddDate(0, 0, -7), time.Now())
-
-	log.Printf("[InvalidateCache] Dashboard cache key: %s", cacheKey)
 }
