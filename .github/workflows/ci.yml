@@ -20,8 +20,9 @@ jobs:
 
       - uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v1.64.8
           working-directory: url-shortener-go-backend
+          args: --timeout=5m
 
   build-backend:
     name: Build Backend
