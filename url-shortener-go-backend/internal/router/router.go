@@ -189,26 +189,44 @@ func (s *APIServer) withMiddleware(h http.Handler, mws ...func(http.Handler) htt
 }
 
 func (s *APIServer) cors() func(http.Handler) http.Handler {
-	allowedOrigins := s.cfg.AllowedOrigins
-	allowedSet := make(map[string]struct{}, len(allowedOrigins))
-	for _, o := range allowedOrigins {
-		allowedSet[strings.TrimRight(o, "/")] = struct{}{}
+	allowedOrigins := map[string]struct{}{
+		"https://linkpulse-chi.vercel.app": {},
+		"http://localhost:3000":            {},
 	}
+
+	allowVercelPreviews := true
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-			slog.Debug("cors check", "method", r.Method, "origin", origin)
 
-			if _, ok := allowedSet[strings.TrimRight(origin, "/")]; ok {
+			origin := r.Header.Get("Origin")
+
+			// Always set Vary so CDN/proxies don’t cache incorrectly
+			w.Header().Add("Vary", "Origin")
+
+			// Decide if origin is allowed
+			allowed := false
+
+			if _, ok := allowedOrigins[origin]; ok {
+				allowed = true
+			}
+
+			if allowVercelPreviews && strings.HasSuffix(origin, ".vercel.app") {
+				allowed = true
+			}
+
+			if allowed && origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().Set("Access-Control-Allow-Methods",
+					"GET, POST, PUT, DELETE, OPTIONS",
+				)
+				w.Header().Set("Access-Control-Allow-Headers",
+					"Content-Type, Authorization",
+				)
 			}
 
 			if r.Method == http.MethodOptions {
-				slog.Debug("cors preflight handled")
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
